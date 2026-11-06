@@ -308,9 +308,36 @@
   <script>
   // 1. CONFIGURATION
   const CONFIG = {
-    // Paste your deployed Google Apps Script Executable Web App URL here:
-    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw9Uwk_lVSy5PYjTX1EMe1YqbINCUvtFvtuLQKDpXG959zKpKijYUZPxKWnQ-EsqYG6Zg/exec'
-  };
+  // Put your Google Sheet ID here:
+  SHEET_ID: 'AKfycbw9Uwk_lVSy5PYjTX1EMe1YqbINCUvtFvtuLQKDpXG959zKpKijYUZPxKWnQ-EsqYG6Zg',
+  // Keep your Apps Script URL here for recording SOLD/UNSOLD:
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw9Uwk_lVSy5PYjTX1EMe1YqbINCUvtFvtuLQKDpXG959zKpKijYUZPxKWnQ-EsqYG6Zg/exec'
+};
+
+// Direct, Zero-CORS reader for any Google Sheet tab
+async function fetchSheetTab(sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  const response = await fetch(url);
+  const text = await response.text();
+  
+  // Extract JSON payload from Google wrapper
+  const jsonStr = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+  const data = JSON.parse(jsonStr);
+
+  const cols = data.table.cols.map(c => (c && c.label) ? c.label.trim() : '');
+  return data.table.rows.map(r => {
+    let rowObj = {};
+    if (r && r.c) {
+      r.c.forEach((cell, idx) => {
+        const header = cols[idx];
+        if (header) {
+          rowObj[header] = cell ? (cell.v !== null && cell.v !== undefined ? cell.v : '') : '';
+        }
+      });
+    }
+    return rowObj;
+  });
+}
 
   // 2. CORE APPLICATION STATE (In-Memory only - No localStorage)
   let state = {
@@ -403,60 +430,59 @@
 	}
 
 	// Updated Initial Data Fetch using JSONP
+	// Load Players and Teams directly
 	async function fetchInitialDataFromSheet() {
-  try {
-    setSyncStatus('syncing', 'Loading Sheet...');
-
-    const response = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=getInitialData`, {
-      method: 'GET',
-      redirect: 'follow'
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (data.success) {
-      state.players = (data.players || []).map(p => ({
-        ...p,
-        BasePrice: Number(p.BasePrice || 0),
-        SoldPrice: Number(p.SoldPrice || 0),
-        Status: (p.Status || 'PENDING').toString().toUpperCase().trim(),
-        Age: p.Age || '',
-        Area: p.Area || ''
-      }));
-
-      state.teams = (data.teams || []).map(t => ({
-        ...t,
-        TotalPurse: Number(t.TotalPurse || 100000),
-        LogoURL: t.LogoURL && t.LogoURL !== '-' ? t.LogoURL : '🏏'
-      }));
-
-      populateTeamDropdowns();
-      renderPurseBar();
-      renderAuctionQueue('PENDING');
-
-      const pending = state.players.filter(p => p.Status === 'PENDING');
-      if (pending.length > 0) {
-        loadPlayerToStage(pending[0].PlayerID);
-      } else if (state.players.length > 0) {
-        loadPlayerToStage(state.players[0].PlayerID);
-      }
-
-      refreshDashboard();
-      renderRosterTable(state.players);
-      renderTeamsView();
-      setSyncStatus('online', 'Live Synced');
-    } else {
-      throw new Error(data.error || 'Server returned failure');
-    }
-  } catch (err) {
-    console.error('Fetch failed:', err);
-    setSyncStatus('error', 'Offline / Error');
-  }
-}
+	  try {
+	    setSyncStatus('syncing', 'Loading Sheet...');
+	
+	    const [rawPlayers, rawTeams] = await Promise.all([
+	      fetchSheetTab('Players'),
+	      fetchSheetTab('Teams')
+	    ]);
+	
+	    state.players = rawPlayers.map(p => ({
+	      ...p,
+	      PlayerID: p.PlayerID || '',
+	      PlayerName: p.PlayerName || '',
+	      BasePrice: Number(p.BasePrice || 0),
+	      SoldPrice: Number(p.SoldPrice || 0),
+	      Status: (p.Status || 'PENDING').toString().toUpperCase().trim(),
+	      Age: p.Age || '',
+	      Area: p.Area || '',
+	      Role: p.Role || 'Batsman',
+	      BattingStyle: p.BattingStyle || 'Right Hand',
+	      BowlingStyle: p.BowlingStyle || 'None'
+	    }));
+	
+	    state.teams = rawTeams.map(t => ({
+	      ...t,
+	      TeamID: t.TeamID || '',
+	      TeamName: t.TeamName || '',
+	      OwnerName: t.OwnerName || '',
+	      TotalPurse: Number(t.TotalPurse || 100000),
+	      LogoURL: t.LogoURL && t.LogoURL !== '-' ? t.LogoURL : '🏏'
+	    }));
+	
+	    populateTeamDropdowns();
+	    renderPurseBar();
+	    renderAuctionQueue('PENDING');
+	
+	    const pending = state.players.filter(p => p.Status === 'PENDING');
+	    if (pending.length > 0) {
+	      loadPlayerToStage(pending[0].PlayerID);
+	    } else if (state.players.length > 0) {
+	      loadPlayerToStage(state.players[0].PlayerID);
+	    }
+	
+	    refreshDashboard();
+	    renderRosterTable(state.players);
+	    renderTeamsView();
+	    setSyncStatus('online', 'Live Synced');
+	  } catch (err) {
+	    console.error('GViz Sheet Load Failed:', err);
+	    setSyncStatus('error', 'Offline / Error');
+	  }
+	}
 
   // 5. LIVE RECORD AUCTION RESULT
   async function recordAuction(status) {
