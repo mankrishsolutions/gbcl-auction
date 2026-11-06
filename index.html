@@ -294,6 +294,127 @@
     </section>
   </main>
 
+<!-- MODAL: ADD PLAYER -->
+  <div id="modalAddPlayer" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-brandCard border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="text-lg font-bold text-white">Add New Player</h3>
+        <button onclick="closeModal('modalAddPlayer')" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+
+      <form id="formAddPlayer" onsubmit="submitNewPlayer(event)" class="space-y-3 text-sm">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Player ID *</label>
+            <input type="text" id="newPlayerID" required placeholder="e.g. 2 or P102" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Player Name *</label>
+            <input type="text" id="newPlayerName" required placeholder="Full Name" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Mobile Number *</label>
+            <input type="tel" id="newPlayerMobile" required placeholder="10-digit Mobile" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Age</label>
+            <input type="number" id="newPlayerAge" placeholder="e.g. 25" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Area / Locality</label>
+            <input type="text" id="newPlayerArea" placeholder="e.g. Dharampeth" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Base Price (₹) *</label>
+            <input type="number" id="newPlayerBasePrice" required placeholder="e.g. 2000" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-emerald-400 font-bold">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Role</label>
+            <select id="newPlayerRole" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white">
+              <option value="Batsman">Batsman</option>
+              <option value="Bowler">Bowler</option>
+              <option value="All-Rounder">All-Rounder</option>
+              <option value="Wicket Keeper">Wicket Keeper</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Batting Style</label>
+            <select id="newPlayerBatting" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white">
+              <option value="Right Hand">Right Hand</option>
+              <option value="Left Hand">Left Hand</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Bowling Style</label>
+            <input type="text" id="newPlayerBowling" placeholder="e.g. RH Fast" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Photo URL (Optional)</label>
+          <input type="url" id="newPlayerPhoto" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white">
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeModal('modalAddPlayer')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700">Cancel</button>
+          <button type="submit" id="btnSavePlayer" class="px-5 py-2 bg-cyan-600 text-white font-bold rounded hover:bg-cyan-500">Save Player</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD TEAM -->
+  <div id="modalAddTeam" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-brandCard border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="text-lg font-bold text-white">Add New Team</h3>
+        <button onclick="closeModal('modalAddTeam')" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+
+      <form id="formAddTeam" onsubmit="submitNewTeam(event)" class="space-y-3 text-sm">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Team ID *</label>
+          <input type="text" id="newTeamID" required placeholder="e.g. 2 or T2" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white">
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Team Name *</label>
+          <input type="text" id="newTeamName" required placeholder="e.g. Orange City Kings" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white">
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Owner / Captain Name *</label>
+          <input type="text" id="newTeamOwner" required placeholder="e.g. Rajesh Bhai" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Logo (Emoji or URL)</label>
+            <input type="text" id="newTeamLogo" placeholder="🦁 or emoji" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Total Purse (₹) *</label>
+            <input type="number" id="newTeamPurse" required value="100000" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-emerald-400 font-bold">
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeModal('modalAddTeam')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700">Cancel</button>
+          <button type="submit" id="btnSaveTeam" class="px-5 py-2 bg-cyan-600 text-white font-bold rounded hover:bg-cyan-500">Save Team</button>
+        </div>
+      </form>
+    </div>
+  </div>
+	
   <!-- STICKY BOTTOM TEAM PURSE BAR -->
   <aside class="fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur border-t border-slate-800 z-40 px-6 py-2.5">
     <div class="flex items-center space-x-4">
@@ -979,6 +1100,107 @@ async function fetchSheetTab(sheetName) {
   window.onload = () => {
     fetchInitialDataFromSheet();
   };
+
+// MODAL CONTROLS
+  function openManualPlayerModal() {
+    document.getElementById('formAddPlayer').reset();
+    // Auto-suggest next ID based on existing players
+    const nextId = state.players.length > 0 ? (Number(state.players[state.players.length - 1].PlayerID) || state.players.length) + 1 : 1;
+    document.getElementById('newPlayerID').value = nextId;
+    document.getElementById('modalAddPlayer').classList.remove('hidden');
+  }
+
+  function openAddTeamModal() {
+    document.getElementById('formAddTeam').reset();
+    const nextId = state.teams.length > 0 ? (Number(state.teams[state.teams.length - 1].TeamID) || state.teams.length) + 1 : 1;
+    document.getElementById('newTeamID').value = nextId;
+    document.getElementById('modalAddTeam').classList.remove('hidden');
+  }
+
+  function closeModal(modalId) {
+    document.getElementById(modalId).classList.add('hidden');
+  }
+
+  // SUBMIT NEW PLAYER DIRECTLY TO GOOGLE SHEETS
+  async function submitNewPlayer(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSavePlayer');
+    btn.disabled = true;
+    btn.innerText = 'Saving to Sheet...';
+    setSyncStatus('syncing', 'Saving Player...');
+
+    const payload = {
+      playerID: document.getElementById('newPlayerID').value.trim(),
+      playerName: document.getElementById('newPlayerName').value.trim(),
+      mobile: document.getElementById('newPlayerMobile').value.trim(),
+      age: document.getElementById('newPlayerAge').value,
+      area: document.getElementById('newPlayerArea').value.trim(),
+      basePrice: Number(document.getElementById('newPlayerBasePrice').value),
+      role: document.getElementById('newPlayerRole').value,
+      battingStyle: document.getElementById('newPlayerBatting').value,
+      bowlingStyle: document.getElementById('newPlayerBowling').value.trim(),
+      photoURL: document.getElementById('newPlayerPhoto').value.trim()
+    };
+
+    try {
+      // POST write to Google Apps Script
+      await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'addPlayer', payload: payload })
+      });
+
+      closeModal('modalAddPlayer');
+      // Re-read Google Sheet via gviz to refresh state immediately
+      await fetchInitialDataFromSheet();
+      alert(`Player "${payload.playerName}" added successfully!`);
+    } catch (err) {
+      console.error('Error saving player:', err);
+      alert('Failed to save player to Google Sheets: ' + err.message);
+      setSyncStatus('error', 'Save Failed');
+    } finally {
+      btn.disabled = false;
+      btn.innerText = 'Save Player';
+    }
+  }
+
+  // SUBMIT NEW TEAM DIRECTLY TO GOOGLE SHEETS
+  async function submitNewTeam(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveTeam');
+    btn.disabled = true;
+    btn.innerText = 'Saving to Sheet...';
+    setSyncStatus('syncing', 'Saving Team...');
+
+    const payload = {
+      teamID: document.getElementById('newTeamID').value.trim(),
+      teamName: document.getElementById('newTeamName').value.trim(),
+      ownerName: document.getElementById('newTeamOwner').value.trim(),
+      logoURL: document.getElementById('newTeamLogo').value.trim() || '🏏',
+      totalPurse: Number(document.getElementById('newTeamPurse').value)
+    };
+
+    try {
+      // POST write to Google Apps Script
+      await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'addTeam', payload: payload })
+      });
+
+      closeModal('modalAddTeam');
+      // Re-read Google Sheet via gviz to refresh state immediately
+      await fetchInitialDataFromSheet();
+      alert(`Team "${payload.teamName}" added successfully!`);
+    } catch (err) {
+      console.error('Error saving team:', err);
+      alert('Failed to save team to Google Sheets: ' + err.message);
+      setSyncStatus('error', 'Save Failed');
+    } finally {
+      btn.disabled = false;
+      btn.innerText = 'Save Team';
+    }
+  }	  
 </script>
 
 </body>
