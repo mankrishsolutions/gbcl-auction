@@ -59,7 +59,7 @@
       <div class="flex items-center space-x-2 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs ml-3">
         <span id="syncIndicator" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
         <span id="syncStatusText" class="text-slate-300 font-mono font-bold">Connecting...</span>
-        <button onclick="fetchInitialDataFromSheet()" title="Force Refresh" class="text-slate-400 hover:text-cyan-400 ml-1">🔄</button>
+        <button onclick="fetchInitialData()" title="Force Refresh" class="text-slate-400 hover:text-cyan-400 ml-1">🔄</button>
       </div>
     </nav>
   </header>
@@ -428,10 +428,8 @@
   <script>
     // 1. CONFIGURATION
     const CONFIG = {
-      // Your Google Spreadsheet ID:
-      SHEET_ID: '1V8lK3fQ2Gq1b54y01vJ-9mYl_3rV9iC-8jA5mQ6nB8k', // If needed, ensure this matches your sheet ID from URL
-      // Your Deployed Apps Script URL:
-      APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw9Uwk_lVSy5PYjTX1EMe1YqbINCUvtFvtuLQKDpXG959zKpKijYUZPxKWnQ-EsqYG6Zg/exec'
+      // Paste your deployed Cloudflare Worker URL here:
+      WORKER_API_URL: 'https://gbcl2026.mankrishsolutions.workers.dev/'
     };
 
     // 2. IN-MEMORY STATE
@@ -442,40 +440,34 @@
       charts: { doughnut: null, bar: null }
     };
 
-    // 3. ZERO-CORS DIRECT GOOGLE SHEET READER
-    async function fetchSheetData(tabName) {
-      const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
-      const res = await fetch(url);
-      const txt = await res.text();
-      
-      const json = JSON.parse(txt.substring(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
-      const headers = json.table.cols.map(c => (c && c.label) ? c.label.trim() : '');
-      
-      return json.table.rows.map(row => {
-        let item = {};
-        if (row && row.c) {
-          row.c.forEach((cell, i) => {
-            const colName = headers[i];
-            if (colName) {
-              item[colName] = cell && cell.v !== null && cell.v !== undefined ? cell.v : '';
-            }
-          });
-        }
-        return item;
-      });
+    // 3. CLEAN STANDARD FETCH VIA CLOUDFLARE WORKER
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+      const url = `${CONFIG.WORKER_API_URL}${endpoint}`;
+      const options = {
+        method: method,
+        headers: { 'Content-Type': 'application/json' }
+      };
+      if (body) {
+        options.body = JSON.stringify(body);
+      }
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        throw new Error(`API HTTP Error: ${response.status}`);
+      }
+      return await response.json();
     }
 
     // 4. LOAD INITIAL DATA
-    async function fetchInitialDataFromSheet() {
+    async function fetchInitialData() {
       try {
         setSyncStatus('syncing', 'Loading Sheet...');
 
-        const [rawPlayers, rawTeams] = await Promise.all([
-          fetchSheetData('Players'),
-          fetchSheetData('Teams')
-        ]);
+        const data = await apiRequest('?action=getInitialData');
+        if (!data || !data.success) {
+          throw new Error(data ? data.error : 'Invalid response');
+        }
 
-        state.players = rawPlayers.map(p => ({
+        state.players = (data.players || []).map(p => ({
           ...p,
           PlayerID: p.PlayerID || '',
           PlayerName: p.PlayerName || '',
@@ -490,7 +482,7 @@
           PhotoURL: p.PhotoURL && p.PhotoURL !== '-' ? p.PhotoURL : ''
         }));
 
-        state.teams = rawTeams.map(t => ({
+        state.teams = (data.teams || []).map(t => ({
           ...t,
           TeamID: t.TeamID || '',
           TeamName: t.TeamName || '',
@@ -515,7 +507,7 @@
         renderTeamsView();
         setSyncStatus('online', 'Live Synced');
       } catch (err) {
-        console.error('Sheet fetch failed:', err);
+        console.error('Fetch failed:', err);
         setSyncStatus('error', 'Sync Failed');
       }
     }
@@ -605,7 +597,7 @@
 
       setSyncStatus('syncing', 'Recording hammer...');
 
-      // Update in-memory immediately
+      // Update in-memory immediately for instant UI response
       p.Status = status;
       p.SoldTeamID = teamId;
       p.SoldPrice = soldPrice;
@@ -616,12 +608,23 @@
       refreshDashboard();
       renderRosterTable(state.players);
 
-      // Async write to Google Sheet via GET ping
-      const writeUrl = `${CONFIG.APPS_SCRIPT_URL}?action=recordAuctionResult&playerID=${encodeURIComponent(p.PlayerID)}&playerName=${encodeURIComponent(p.PlayerName)}&status=${status}&teamID=${encodeURIComponent(teamId)}&teamName=${encodeURIComponent(teamName)}&soldPrice=${soldPrice}`;
-      const ping = new Image();
-      ping.src = writeUrl;
-
-      setTimeout(() => setSyncStatus('online', 'Live Synced'), 1200);
+      try {
+        await apiRequest('', 'POST', {
+          action: 'recordAuctionResult',
+          payload: {
+            playerID: p.PlayerID,
+            playerName: p.PlayerName,
+            status: status,
+            teamID: teamId,
+            teamName: teamName,
+            soldPrice: soldPrice
+          }
+        });
+        setSyncStatus('online', 'Live Synced');
+      } catch (err) {
+        console.error('Hammer record failed:', err);
+        setSyncStatus('error', 'Sync Failed');
+      }
     }
 
     function filterAuctionQueue(filterType) {
@@ -951,7 +954,7 @@
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.7));
+            resolve(canvas.toDataURL('image/jpeg', 0.7)); // Clean Base64 JPEG
           };
           img.src = e.target.result;
         };
@@ -971,12 +974,12 @@
       }
     }
 
-    // 11. SUBMISSION TO GOOGLE APPS SCRIPT
+    // 11. CLEAN ASYNC SUBMISSIONS VIA CLOUDFLARE WORKER
     async function submitNewPlayer(e) {
       e.preventDefault();
       const btn = document.getElementById('btnSavePlayer');
       btn.disabled = true;
-      btn.innerText = 'Saving to Sheet...';
+      btn.innerText = 'Saving to Drive & Sheet...';
       setSyncStatus('syncing', 'Saving Player...');
 
       const fileInput = document.getElementById('newPlayerPhotoFile');
@@ -1004,23 +1007,17 @@
       };
 
       try {
-        await fetch(CONFIG.APPS_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'addPlayer', payload: payload })
-        });
+        const res = await apiRequest('', 'POST', { action: 'addPlayer', payload: payload });
+        if (!res.success) throw new Error(res.error || 'Server rejected');
 
-        setTimeout(async () => {
-          closeModal('modalAddPlayer');
-          await fetchInitialDataFromSheet();
-          alert(`Player "${payload.playerName}" saved to Google Sheets successfully!`);
-          btn.disabled = false;
-          btn.innerText = 'Save Player';
-        }, 2200);
+        closeModal('modalAddPlayer');
+        await fetchInitialData();
+        alert(`Player "${payload.playerName}" saved to Google Sheets and Drive successfully!`);
       } catch (err) {
-        console.error(err);
-        alert('Failed: ' + err.message);
+        console.error('Error saving player:', err);
+        alert('Failed to save player: ' + err.message);
+        setSyncStatus('error', 'Save Failed');
+      } finally {
         btn.disabled = false;
         btn.innerText = 'Save Player';
       }
@@ -1033,23 +1030,29 @@
       btn.innerText = 'Saving to Sheet...';
       setSyncStatus('syncing', 'Saving Team...');
 
-      const tId = encodeURIComponent(document.getElementById('newTeamID').value.trim());
-      const tName = encodeURIComponent(document.getElementById('newTeamName').value.trim());
-      const owner = encodeURIComponent(document.getElementById('newTeamOwner').value.trim());
-      const logo = encodeURIComponent(document.getElementById('newTeamLogo').value.trim() || '🏏');
-      const purse = encodeURIComponent(document.getElementById('newTeamPurse').value || 100000);
+      const payload = {
+        teamID: document.getElementById('newTeamID').value.trim(),
+        teamName: document.getElementById('newTeamName').value.trim(),
+        ownerName: document.getElementById('newTeamOwner').value.trim(),
+        logoURL: document.getElementById('newTeamLogo').value.trim() || '🏏',
+        totalPurse: Number(document.getElementById('newTeamPurse').value || 100000)
+      };
 
-      const addUrl = `${CONFIG.APPS_SCRIPT_URL}?action=addTeam&teamID=${tId}&teamName=${tName}&ownerName=${owner}&logoURL=${logo}&totalPurse=${purse}`;
-      const ping = new Image();
-      ping.src = addUrl;
+      try {
+        const res = await apiRequest('', 'POST', { action: 'addTeam', payload: payload });
+        if (!res.success) throw new Error(res.error || 'Server rejected');
 
-      setTimeout(async () => {
         closeModal('modalAddTeam');
-        await fetchInitialDataFromSheet();
-        alert(`Team added successfully!`);
+        await fetchInitialData();
+        alert(`Team "${payload.teamName}" added successfully!`);
+      } catch (err) {
+        console.error('Error saving team:', err);
+        alert('Failed to save team: ' + err.message);
+        setSyncStatus('error', 'Save Failed');
+      } finally {
         btn.disabled = false;
         btn.innerText = 'Save Team';
-      }, 2000);
+      }
     }
 
     // 12. TAB SWITCHING
@@ -1115,7 +1118,7 @@
 
     // 14. INITIALIZATION
     window.onload = () => {
-      fetchInitialDataFromSheet();
+      fetchInitialData();
     };
   </script>
 </body>
