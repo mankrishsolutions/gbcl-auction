@@ -404,49 +404,59 @@
 
 	// Updated Initial Data Fetch using JSONP
 	async function fetchInitialDataFromSheet() {
-	  try {
-		setSyncStatus('syncing', 'Loading Sheet...');
+  try {
+    setSyncStatus('syncing', 'Loading Sheet...');
 
-		const data = await fetchJSONP(`${CONFIG.APPS_SCRIPT_URL}?action=getInitialData`);
+    const response = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=getInitialData`, {
+      method: 'GET',
+      redirect: 'follow'
+    });
 
-		if (data.success) {
-		  state.players = data.players.map(p => ({
-			...p,
-			BasePrice: Number(p.BasePrice || 0),
-			SoldPrice: Number(p.SoldPrice || 0),
-			Age: p.Age || '',
-			Area: p.Area || ''
-		  }));
-		  
-		  state.teams = data.teams.map(t => ({
-			...t,
-			TotalPurse: Number(t.TotalPurse || 100000)
-		  }));
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-		  populateTeamDropdowns();
-		  renderPurseBar();
-		  renderAuctionQueue('PENDING');
-		  
-		  // Auto-load Chetan if pending, or first player
-		  const pendingPlayers = state.players.filter(p => (p.Status || '').toUpperCase() === 'PENDING');
-		  if (pendingPlayers.length > 0) {
-			loadPlayerToStage(pendingPlayers[0].PlayerID);
-		  } else if (state.players.length > 0) {
-			loadPlayerToStage(state.players[0].PlayerID);
-		  }
+    const data = await response.json();
 
-		  refreshDashboard();
-		  renderRosterTable(state.players);
-		  renderTeamsView();
-		  setSyncStatus('online', 'Live Synced');
-		} else {
-		  throw new Error(data.error || 'Failed to load data');
-		}
-	  } catch (err) {
-		console.error('Failed to load initial data:', err);
-		setSyncStatus('error', 'Sync Failed');
-	  }
-	}
+    if (data.success) {
+      state.players = (data.players || []).map(p => ({
+        ...p,
+        BasePrice: Number(p.BasePrice || 0),
+        SoldPrice: Number(p.SoldPrice || 0),
+        Status: (p.Status || 'PENDING').toString().toUpperCase().trim(),
+        Age: p.Age || '',
+        Area: p.Area || ''
+      }));
+
+      state.teams = (data.teams || []).map(t => ({
+        ...t,
+        TotalPurse: Number(t.TotalPurse || 100000),
+        LogoURL: t.LogoURL && t.LogoURL !== '-' ? t.LogoURL : '🏏'
+      }));
+
+      populateTeamDropdowns();
+      renderPurseBar();
+      renderAuctionQueue('PENDING');
+
+      const pending = state.players.filter(p => p.Status === 'PENDING');
+      if (pending.length > 0) {
+        loadPlayerToStage(pending[0].PlayerID);
+      } else if (state.players.length > 0) {
+        loadPlayerToStage(state.players[0].PlayerID);
+      }
+
+      refreshDashboard();
+      renderRosterTable(state.players);
+      renderTeamsView();
+      setSyncStatus('online', 'Live Synced');
+    } else {
+      throw new Error(data.error || 'Server returned failure');
+    }
+  } catch (err) {
+    console.error('Fetch failed:', err);
+    setSyncStatus('error', 'Offline / Error');
+  }
+}
 
   // 5. LIVE RECORD AUCTION RESULT
   async function recordAuction(status) {
