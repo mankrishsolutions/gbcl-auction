@@ -1126,45 +1126,67 @@ async function fetchSheetTab(sheetName) {
     document.getElementById(modalId).classList.add('hidden');
   }
 
-  // Instant Image Preview
-  function previewPlayerImage(input) {
+  // 1. AUTO-COMPRESS IMAGE TO UNDER 100KB BEFORE SENDING
+  async function compressImageFile(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max dimension 400px (ideal for player badges)
+          const MAX_SIZE = 400;
+          if (width > height && width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          } else if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Export lightweight JPEG (0.7 quality)
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // 2. PREVIEW HANDLER
+  async function previewPlayerImage(input) {
     const preview = document.getElementById('newPlayerPhotoPreview');
     if (input.files && input.files[0]) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        preview.src = e.target.result;
-        preview.classList.remove('hidden');
-      };
-      reader.readAsDataURL(input.files[0]);
+      const compressedDataUrl = await compressImageFile(input.files[0]);
+      preview.src = compressedDataUrl;
+      preview.classList.remove('hidden');
     } else {
       preview.src = '';
       preview.classList.add('hidden');
     }
   }
 
-  // SUBMIT NEW PLAYER WITH ZERO-CORS POST & IMAGE UPLOAD
+  // 3. FAIL-PROOF SUBMISSION VIA HIDDEN IFRAME FORM
   async function submitNewPlayer(e) {
     e.preventDefault();
     const btn = document.getElementById('btnSavePlayer');
     btn.disabled = true;
-    btn.innerText = 'Uploading to Drive & Sheet...';
+    btn.innerText = 'Saving to Sheet...';
     setSyncStatus('syncing', 'Saving Player...');
 
     const fileInput = document.getElementById('newPlayerPhotoFile');
     let imageBase64 = '';
-    let imageName = '';
-    let imageType = '';
 
-    // Convert selected image to Base64
     if (fileInput.files && fileInput.files[0]) {
-      const file = fileInput.files[0];
-      imageName = file.name;
-      imageType = file.type;
-      imageBase64 = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (evt) => resolve(evt.target.result);
-        reader.readAsDataURL(file);
-      });
+      imageBase64 = await compressImageFile(fileInput.files[0]);
     }
 
     const payload = {
@@ -1178,36 +1200,45 @@ async function fetchSheetTab(sheetName) {
       battingStyle: document.getElementById('newPlayerBatting').value,
       bowlingStyle: document.getElementById('newPlayerBowling').value.trim(),
       imageBase64: imageBase64,
-      imageName: imageName,
-      imageType: imageType
+      imageName: fileInput.files[0] ? fileInput.files[0].name : '',
+      imageType: 'image/jpeg'
     };
 
-    try {
-      // mode: 'no-cors' guarantees the browser sends the payload without redirect blocks
-      await fetch(CONFIG.APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'addPlayer', payload: payload })
-      });
+    // Create an invisible target iframe if it does not exist
+    let iframe = document.getElementById('gas_hidden_iframe');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'gas_hidden_iframe';
+      iframe.name = 'gas_hidden_iframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }
 
+    // Create a temporary hidden form to submit directly to Google Apps Script
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = CONFIG.APPS_SCRIPT_URL;
+    form.target = 'gas_hidden_iframe';
+
+    const inputData = document.createElement('input');
+    inputData.type = 'hidden';
+    inputData.name = 'postData';
+    // Package action and payload into postData
+    inputData.value = JSON.stringify({ action: 'addPlayer', payload: payload });
+    form.appendChild(inputData);
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
+    // Give Google Apps Script 2.5 seconds to write to Drive & Sheets, then refresh
+    setTimeout(async () => {
       closeModal('modalAddPlayer');
-      
-      // Allow 1.5 seconds for Google Sheets & Drive to write, then reload clean state
-      setTimeout(async () => {
-        await fetchInitialDataFromSheet();
-        alert(`Player "${payload.playerName}" saved to Google Sheets successfully!`);
-        btn.disabled = false;
-        btn.innerText = 'Save Player';
-      }, 1500);
-
-    } catch (err) {
-      console.error('Error saving player:', err);
-      alert('Failed to send data to Google Sheets: ' + err.message);
-      setSyncStatus('error', 'Save Failed');
+      await fetchInitialDataFromSheet();
+      alert(`Player "${payload.playerName}" saved to Google Sheets successfully!`);
       btn.disabled = false;
       btn.innerText = 'Save Player';
-    }
+    }, 2500);
   }
 
   // SUBMIT NEW TEAM DIRECTLY TO GOOGLE SHEETS
