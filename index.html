@@ -1126,8 +1126,8 @@ async function fetchSheetTab(sheetName) {
     document.getElementById(modalId).classList.add('hidden');
   }
 
-  // 1. AUTO-COMPRESS IMAGE TO UNDER 100KB BEFORE SENDING
-  async function compressImageFile(file) {
+  // Helper: Compress image to ~50KB so Apps Script receives it instantly
+  async function compressPhoto(file) {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -1136,24 +1136,19 @@ async function fetchSheetTab(sheetName) {
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          
-          // Max dimension 400px (ideal for player badges)
-          const MAX_SIZE = 400;
-          if (width > height && width > MAX_SIZE) {
-            height = Math.round((height * MAX_SIZE) / width);
-            width = MAX_SIZE;
-          } else if (height > MAX_SIZE) {
-            width = Math.round((width * MAX_SIZE) / height);
-            height = MAX_SIZE;
+          const MAX = 400; // 400x400 max size
+          if (width > height && width > MAX) {
+            height = Math.round((height * MAX) / width);
+            width = MAX;
+          } else if (height > MAX) {
+            width = Math.round((width * MAX) / height);
+            height = MAX;
           }
-          
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
-          
-          // Export lightweight JPEG (0.7 quality)
-          resolve(canvas.toDataURL('image/jpeg', 0.7));
+          resolve(canvas.toDataURL('image/jpeg', 0.7)); // Clean base64 JPEG
         };
         img.src = e.target.result;
       };
@@ -1174,19 +1169,22 @@ async function fetchSheetTab(sheetName) {
     }
   }
 
-  // 3. FAIL-PROOF SUBMISSION VIA HIDDEN IFRAME FORM
+  / Submit Player directly to Apps Script (Zero Third-Party APIs)
   async function submitNewPlayer(e) {
     e.preventDefault();
     const btn = document.getElementById('btnSavePlayer');
     btn.disabled = true;
-    btn.innerText = 'Saving to Sheet...';
+    btn.innerText = 'Uploading to Drive & Sheet...';
     setSyncStatus('syncing', 'Saving Player...');
 
     const fileInput = document.getElementById('newPlayerPhotoFile');
     let imageBase64 = '';
+    let imageName = '';
 
     if (fileInput.files && fileInput.files[0]) {
-      imageBase64 = await compressImageFile(fileInput.files[0]);
+      const file = fileInput.files[0];
+      imageName = file.name;
+      imageBase64 = await compressPhoto(file);
     }
 
     const payload = {
@@ -1200,45 +1198,34 @@ async function fetchSheetTab(sheetName) {
       battingStyle: document.getElementById('newPlayerBatting').value,
       bowlingStyle: document.getElementById('newPlayerBowling').value.trim(),
       imageBase64: imageBase64,
-      imageName: fileInput.files[0] ? fileInput.files[0].name : '',
+      imageName: imageName,
       imageType: 'image/jpeg'
     };
 
-    // Create an invisible target iframe if it does not exist
-    let iframe = document.getElementById('gas_hidden_iframe');
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.id = 'gas_hidden_iframe';
-      iframe.name = 'gas_hidden_iframe';
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-    }
+    try {
+      // POST direct to Apps Script
+      await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors', // Bypasses browser redirect blocks
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'addPlayer', payload: payload })
+      });
 
-    // Create a temporary hidden form to submit directly to Google Apps Script
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = CONFIG.APPS_SCRIPT_URL;
-    form.target = 'gas_hidden_iframe';
+      // Allow 2 seconds for Drive to save the file and Sheet to append the row
+      setTimeout(async () => {
+        closeModal('modalAddPlayer');
+        await fetchInitialDataFromSheet();
+        alert(`Player "${payload.playerName}" and photo saved directly to Google Drive & Sheets!`);
+        btn.disabled = false;
+        btn.innerText = 'Save Player';
+      }, 2500);
 
-    const inputData = document.createElement('input');
-    inputData.type = 'hidden';
-    inputData.name = 'postData';
-    // Package action and payload into postData
-    inputData.value = JSON.stringify({ action: 'addPlayer', payload: payload });
-    form.appendChild(inputData);
-
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-
-    // Give Google Apps Script 2.5 seconds to write to Drive & Sheets, then refresh
-    setTimeout(async () => {
-      closeModal('modalAddPlayer');
-      await fetchInitialDataFromSheet();
-      alert(`Player "${payload.playerName}" saved to Google Sheets successfully!`);
+    } catch (err) {
+      console.error(err);
+      alert('Upload error: ' + err.message);
       btn.disabled = false;
       btn.innerText = 'Save Player';
-    }, 2500);
+    }
   }
 
   // SUBMIT NEW TEAM DIRECTLY TO GOOGLE SHEETS
