@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GBCL Auction Day Manager</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brandDark: '#080c18',
+            brandCard: '#0f172a',
+            neonGreen: '#10b981',
+            neonOrange: '#f97316',
+            neonBlue: '#38bdf8',
+            neonPurple: '#a855f7'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #080c18; color: #f1f5f9; font-family: ui-sans-serif, system-ui, sans-serif; }
+    .neon-border { box-shadow: 0 0 15px rgba(56, 189, 248, 0.25); }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col pb-24">
+
+  <!-- TOP NAVIGATION -->
+  <header class="bg-brandCard/90 backdrop-blur border-b border-slate-800 sticky top-0 z-30 px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-cyan-500 to-fuchsia-600 flex items-center justify-center font-black text-xl shadow-lg">G</div>
+      <div>
+        <h1 class="text-lg font-black tracking-wide bg-gradient-to-r from-neonBlue to-neonPurple bg-clip-text text-transparent">GBCL AUCTION DAY MANAGER</h1>
+        <p class="text-xs text-slate-400 font-semibold">MMN Golden Boys Champions League</p>
+      </div>
+    </div>
+    
+    <nav class="flex items-center space-x-2">
+      <button onclick="switchTab('auction')" id="nav-auction" class="px-4 py-2 text-sm font-bold rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Auction Arena</button>
+      <button onclick="switchTab('dashboard')" id="nav-dashboard" class="px-4 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white">Dashboard</button>
+      <button onclick="switchTab('players')" id="nav-players" class="px-4 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white">Player Roster</button>
+      <button onclick="switchTab('teams')" id="nav-teams" class="px-4 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white">Teams & Squads</button>
+      <button onclick="switchTab('import')" id="nav-import" class="px-4 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white">Import / Export</button>
+
+		<!-- TOP BAR SYNC STATUS INDICATOR -->
+		<!-- Insert this inside your <header> in index.html right before </nav> -->
+		<div class="flex items-center space-x-2 px-3 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs">
+		  <span id="syncIndicator" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+		  <span id="syncStatusText" class="text-slate-300 font-mono font-bold">Connecting...</span>
+		  <button onclick="fetchInitialDataFromSheet()" title="Force Refresh" class="text-slate-400 hover:text-cyan-400 ml-1">🔄</button>
+		</div>
+    </nav>
+	
+
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 p-6 max-w-7xl mx-auto w-full">
+    
+    <!-- 1. AUCTION ARENA VIEW -->
+    <section id="tab-auction" class="space-y-6">
+      <div class="flex items-center justify-between bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+        <div class="flex items-center space-x-3 w-1/2">
+          <input type="text" id="playerSearchInput" placeholder="Quick search player by ID, Name or Area..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-cyan-400" onkeyup="handleAuctionSearch(this.value)">
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="filterAuctionQueue('PENDING')" class="px-3 py-1.5 text-xs font-bold rounded bg-slate-800 hover:bg-slate-700 text-slate-300">Pending</button>
+          <button onclick="filterAuctionQueue('RE_AUCTION')" class="px-3 py-1.5 text-xs font-bold rounded bg-orange-950/70 border border-orange-500/40 text-orange-400 hover:bg-orange-900/60 font-mono">🔁 Re-Auction (Unsold)</button>
+        </div>
+      </div>
+
+      <!-- MAIN AUCTION STAGE CARD -->
+      <div class="bg-brandCard border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden neon-border">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+          
+          <!-- LEFT: Player Photo & Status -->
+          <div class="md:col-span-4 flex flex-col items-center border-b md:border-b-0 md:border-r border-slate-800 pb-6 md:pb-0 md:pr-6">
+            <div class="w-56 h-64 rounded-xl bg-slate-950 border-2 border-slate-700 overflow-hidden shadow-inner flex items-center justify-center relative">
+              <img id="stagePhoto" src="https://placehold.co/400x500/0f172a/38bdf8?text=Player+Photo" alt="Player Photo" class="w-full h-full object-cover">
+              <span id="stageStatusBadge" class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase bg-slate-800 text-slate-300">PENDING</span>
+            </div>
+            <p id="stagePlayerID" class="mt-4 font-mono text-cyan-400 font-bold text-lg">ID: --</p>
+            <p id="stageCategory" class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Category: Regular</p>
+          </div>
+
+          <!-- RIGHT: Bio, Area, Role, Arms -->
+          <div class="md:col-span-8 flex flex-col justify-between space-y-4">
+            <div>
+              <div class="flex items-baseline justify-between">
+                <h2 id="stageName" class="text-3xl font-black text-white tracking-wide">Select a Player to Auction</h2>
+                <div class="text-right">
+                  <span class="text-xs text-slate-400">Base Price</span>
+                  <p id="stageBasePrice" class="text-2xl font-black text-emerald-400">₹0</p>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 text-sm">
+                <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                  <span class="text-slate-500 text-xs block">Mobile Number</span>
+                  <span id="stageMobile" class="font-bold text-slate-200">--</span>
+                </div>
+                <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                  <span class="text-slate-500 text-xs block">Area / Locality</span>
+                  <span id="stageArea" class="font-bold text-slate-200">--</span>
+                </div>
+                <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                  <span class="text-slate-500 text-xs block">Playing Role</span>
+                  <span id="stageRole" class="font-bold text-cyan-400">--</span>
+                </div>
+                <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                  <span class="text-slate-500 text-xs block">Batting Style</span>
+                  <span id="stageBatting" class="font-bold text-slate-200">--</span>
+                </div>
+                <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                  <span class="text-slate-500 text-xs block">Bowling Style</span>
+                  <span id="stageBowling" class="font-bold text-slate-200">--</span>
+                </div>
+                <div class="bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                  <span class="text-slate-500 text-xs block">Age</span>
+                  <span id="stageAge" class="font-bold text-slate-200">--</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- BOTTOM: Action Deck (Sold to Team, Owner name, Sold Price, Actions) -->
+            <div class="bg-slate-950/90 p-4 rounded-xl border border-cyan-500/20 mt-4 space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-400 mb-1">Purchased By Team</label>
+                  <select id="stageTeamSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400" onchange="updateSelectedTeamInfo()">
+                    <option value="">-- Choose Purchasing Team --</option>
+                  </select>
+                  <span id="stageOwnerLabel" class="text-xs text-slate-400 mt-1 block">Owner / Captain: --</span>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-400 mb-1">Final Sold Price (₹)</label>
+                  <input type="number" id="stageSoldPrice" placeholder="Enter auction hammer amount" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-emerald-400 font-bold focus:outline-none focus:border-emerald-400">
+                </div>
+              </div>
+
+              <div class="flex items-center justify-end space-x-3 pt-2">
+                <button onclick="recordAuction('UNSOLD')" class="px-6 py-2.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/30 hover:bg-orange-600 hover:text-white text-sm font-bold transition">Mark UNSOLD</button>
+                <button onclick="recordAuction('SOLD')" class="px-8 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-black transition shadow-lg shadow-emerald-500/30">🔨 SOLD</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Selection Carousel of Pending Players -->
+      <div>
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Auction Queue</h3>
+        <div id="auctionQueueList" class="flex space-x-3 overflow-x-auto pb-2 custom-scroll">
+          <!-- Dynamically filled with player chips -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. DASHBOARD VIEW -->
+    <section id="tab-dashboard" class="hidden space-y-6">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div class="bg-brandCard p-4 rounded-xl border border-slate-800">
+          <p class="text-xs text-slate-400">Registered</p>
+          <p id="statTotalPlayers" class="text-2xl font-black text-white mt-1">0</p>
+        </div>
+        <div class="bg-brandCard p-4 rounded-xl border border-slate-800">
+          <p class="text-xs text-slate-400">Sold</p>
+          <p id="statSoldPlayers" class="text-2xl font-black text-emerald-400 mt-1">0</p>
+        </div>
+        <div class="bg-brandCard p-4 rounded-xl border border-slate-800">
+          <p class="text-xs text-slate-400">Unsold</p>
+          <p id="statUnsoldPlayers" class="text-2xl font-black text-orange-400 mt-1">0</p>
+        </div>
+        <div class="bg-brandCard p-4 rounded-xl border border-slate-800">
+          <p class="text-xs text-slate-400">Pending</p>
+          <p id="statPendingPlayers" class="text-2xl font-black text-slate-400 mt-1">0</p>
+        </div>
+        <div class="bg-brandCard p-4 rounded-xl border border-slate-800">
+          <p class="text-xs text-slate-400">Total Spent</p>
+          <p id="statTotalSpent" class="text-2xl font-black text-cyan-400 mt-1">₹0</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-brandCard p-5 rounded-xl border border-slate-800">
+          <h4 class="text-sm font-bold text-slate-300 mb-3">Status Breakdown</h4>
+          <div class="h-60 flex items-center justify-center">
+            <canvas id="statusDoughnutChart"></canvas>
+          </div>
+        </div>
+        <div class="bg-brandCard p-5 rounded-xl border border-slate-800 lg:col-span-2">
+          <h4 class="text-sm font-bold text-slate-300 mb-3">Team-wise Spending</h4>
+          <div class="h-60">
+            <canvas id="teamSpendingBarChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top 5 & Transactions -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-brandCard p-5 rounded-xl border border-slate-800">
+          <h4 class="text-sm font-bold text-slate-300 mb-3">Top 5 Highest Buys</h4>
+          <div id="topPlayersList" class="space-y-2 text-sm"></div>
+        </div>
+        <div class="bg-brandCard p-5 rounded-xl border border-slate-800">
+          <h4 class="text-sm font-bold text-slate-300 mb-3">Latest Activity</h4>
+          <div id="recentActivityList" class="space-y-2 text-xs font-mono text-slate-400"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. PLAYER ROSTER VIEW -->
+    <section id="tab-players" class="hidden space-y-4">
+      <div class="flex flex-wrap gap-3 items-center justify-between">
+        <div class="flex flex-wrap gap-2 items-center">
+          <input type="text" id="rosterSearch" placeholder="Search roster..." class="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-sm text-white" onkeyup="filterRoster()">
+          <select id="rosterStatusFilter" class="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-sm text-slate-300" onchange="filterRoster()">
+            <option value="ALL">All Statuses</option>
+            <option value="SOLD">Sold</option>
+            <option value="UNSOLD">Unsold</option>
+            <option value="PENDING">Pending</option>
+          </select>
+          <select id="rosterRoleFilter" class="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-sm text-slate-300" onchange="filterRoster()">
+            <option value="ALL">All Roles</option>
+            <option value="Batsman">Batsman</option>
+            <option value="Bowler">Bowler</option>
+            <option value="All-Rounder">All-Rounder</option>
+            <option value="Wicket Keeper">Wicket Keeper</option>
+          </select>
+        </div>
+        <button onclick="openManualPlayerModal()" class="px-4 py-1.5 bg-cyan-600 text-white rounded-lg text-sm font-bold hover:bg-cyan-500">+ Add Player</button>
+      </div>
+
+      <div class="bg-brandCard border border-slate-800 rounded-xl overflow-x-auto custom-scroll">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-950 text-slate-400 text-xs uppercase font-mono border-b border-slate-800">
+            <tr>
+              <th class="p-3">Photo</th>
+              <th class="p-3">ID</th>
+              <th class="p-3">Player Details</th>
+              <th class="p-3">Role & Style</th>
+              <th class="p-3">Area</th>
+              <th class="p-3">Base Price</th>
+              <th class="p-3">Status</th>
+              <th class="p-3">Sold Team</th>
+              <th class="p-3">Sold Price</th>
+              <th class="p-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="rosterTableBody" class="divide-y divide-slate-800/60"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. TEAMS & SQUADS -->
+    <section id="tab-teams" class="hidden space-y-6">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-bold text-white">Teams & Squad Ledgers</h3>
+        <button onclick="openAddTeamModal()" class="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded text-sm text-slate-200 hover:bg-slate-700">+ Add Team</button>
+      </div>
+      <div id="teamsCardGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </section>
+
+    <!-- 5. IMPORT / EXPORT -->
+    <section id="tab-import" class="hidden space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-brandCard p-6 rounded-xl border border-slate-800 space-y-4">
+          <h4 class="font-bold text-slate-200">Import Players (Excel / CSV)</h4>
+          <p class="text-xs text-slate-400">Upload standard spreadsheets with Player ID, Name, Mobile, Role, Area, BasePrice.</p>
+          <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-cyan-950 file:text-cyan-400 hover:file:bg-cyan-900" onchange="handleExcelUpload(event)">
+        </div>
+
+        <div class="bg-brandCard p-6 rounded-xl border border-slate-800 space-y-4">
+          <h4 class="font-bold text-slate-200">Export Auction Data</h4>
+          <p class="text-xs text-slate-400">Download formatted summary reports of finalized teams and balances.</p>
+          <div class="flex space-x-3">
+            <button onclick="exportToExcel()" class="px-4 py-2 bg-emerald-600/20 text-emerald-400 border border-emerald-500/40 rounded text-sm font-bold hover:bg-emerald-600 hover:text-white">Export Excel (.xlsx)</button>
+            <button onclick="exportToPDF()" class="px-4 py-2 bg-red-600/20 text-red-400 border border-red-500/40 rounded text-sm font-bold hover:bg-red-600 hover:text-white">Export PDF</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- STICKY BOTTOM TEAM PURSE BAR -->
+  <aside class="fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur border-t border-slate-800 z-40 px-6 py-2.5">
+    <div class="flex items-center space-x-4">
+      <span class="text-xs font-black uppercase tracking-wider text-cyan-400 whitespace-nowrap">Team Purses:</span>
+      <div id="stickyPurseBar" class="flex items-center space-x-4 overflow-x-auto custom-scroll w-full py-1">
+        <!-- Dynamically injected team purse chips -->
+      </div>
+    </div>
+  </aside>
+
+  <!-- JAVASCRIPT STATE ENGINE -->
+  <script>
+  // 1. CONFIGURATION
+  const CONFIG = {
+    // Paste your deployed Google Apps Script Executable Web App URL here:
+    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw9Uwk_lVSy5PYjTX1EMe1YqbINCUvtFvtuLQKDpXG959zKpKijYUZPxKWnQ-EsqYG6Zg/exec'
+  };
+
+  // 2. CORE APPLICATION STATE (In-Memory only - No localStorage)
+  let state = {
+    players: [],
+    teams: [],
+    activePlayer: null,
+    charts: { doughnut: null, bar: null },
+    isSyncing: false
+  };
+
+  // 3. API COMMUNICATION WRAPPER
+  async function callAppsScript(action, payload = {}) {
+    setSyncStatus('syncing', 'Syncing...');
+    try {
+      // Google Apps Script doPost requires text/plain to bypass strict preflight OPTIONS check
+      const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: action, payload: payload })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Server returned failure');
+      }
+
+      setSyncStatus('online', 'Live Synced');
+      return result;
+    } catch (err) {
+      console.error('Apps Script Sync Error:', err);
+      setSyncStatus('error', 'Sync Failed');
+      alert(`Google Sheets Sync Error: ${err.message}`);
+      throw err;
+    }
+  }
+
+  function setSyncStatus(status, text) {
+    const dot = document.getElementById('syncIndicator');
+    const label = document.getElementById('syncStatusText');
+    if (!dot || !label) return;
+
+    label.innerText = text;
+    if (status === 'online') {
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]';
+    } else if (status === 'syncing') {
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse';
+    } else {
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]';
+    }
+  }
+
+  // 4. FETCH DATA FROM GOOGLE SHEETS
+  async function fetchInitialDataFromSheet() {
+    try {
+      setSyncStatus('syncing', 'Loading Sheet...');
+      
+      // Fallback check if URL hasn't been set by organizer yet
+      if (CONFIG.APPS_SCRIPT_URL.includes('YOUR_SCRIPT_ID_HERE')) {
+        setSyncStatus('error', 'Set WebApp URL');
+        console.warn('Google Apps Script URL is not set in CONFIG.APPS_SCRIPT_URL.');
+        return;
+      }
+
+      const response = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=getInitialData`, {
+        method: 'GET',
+        redirect: 'follow'
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        state.players = data.players.map(p => ({
+          ...p,
+          BasePrice: Number(p.BasePrice || 0),
+          SoldPrice: Number(p.SoldPrice || 0),
+          Age: p.Age || '',
+          Area: p.Area || ''
+        }));
+        
+        state.teams = data.teams.map(t => ({
+          ...t,
+          TotalPurse: Number(t.TotalPurse || 100000)
+        }));
+
+        populateTeamDropdowns();
+        renderPurseBar();
+        renderAuctionQueue('PENDING');
+        
+        if (state.players.length > 0) {
+          loadPlayerToStage(state.players[0].PlayerID);
+        }
+        refreshDashboard();
+        renderRosterTable(state.players);
+        renderTeamsView();
+        setSyncStatus('online', 'Live Synced');
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (err) {
+      console.error('Failed to load initial data from Google Sheets:', err);
+      setSyncStatus('error', 'Offline / Error');
+    }
+  }
+
+  // 5. LIVE RECORD AUCTION RESULT
+  async function recordAuction(status) {
+    if (!state.activePlayer) {
+      alert('Please pick a player first.');
+      return;
+    }
+
+    const p = state.activePlayer;
+    const teamSelect = document.getElementById('stageTeamSelect');
+    const soldPriceInput = document.getElementById('stageSoldPrice');
+
+    let teamId = '';
+    let teamName = '';
+    let soldPrice = 0;
+
+    if (status === 'SOLD') {
+      teamId = teamSelect.value;
+      soldPrice = Number(soldPriceInput.value);
+
+      if (!teamId) {
+        alert('Please select a purchasing team for SOLD status.');
+        return;
+      }
+      if (!soldPrice || soldPrice < Number(p.BasePrice)) {
+        if (!confirm(`Sold price is lower than Base Price (₹${p.BasePrice}). Proceed anyway?`)) return;
+      }
+
+      const team = state.teams.find(t => t.TeamID === teamId);
+      teamName = team ? team.TeamName : '';
+
+      // Hard validation: Check purse cap
+      const spent = state.players.filter(x => x.SoldTeamID === teamId && x.PlayerID !== p.PlayerID)
+                                 .reduce((sum, cur) => sum + Number(cur.SoldPrice || 0), 0);
+      const remaining = team.TotalPurse - spent;
+      if (soldPrice > remaining) {
+        alert(`Transaction Blocked: Team ${team.TeamName} has only ₹${remaining.toLocaleString()} left.`);
+        return;
+      }
+    }
+
+    // Disable action buttons during active API call
+    const actionDeck = document.querySelector('#tab-auction button[onclick*="recordAuction"]');
+    setSyncStatus('syncing', 'Saving to Sheet...');
+
+    try {
+      const payload = {
+        playerID: p.PlayerID,
+        playerName: p.PlayerName,
+        status: status,
+        teamID: teamId,
+        teamName: teamName,
+        soldPrice: soldPrice
+      };
+
+      // Direct write to Google Sheet backend
+      await callAppsScript('recordAuctionResult', payload);
+
+      // Mutate in-memory state on success
+      p.Status = status;
+      p.SoldTeamID = teamId;
+      p.SoldPrice = soldPrice;
+
+      // Update UI components immediately
+      loadPlayerToStage(p.PlayerID);
+      renderAuctionQueue('PENDING');
+      renderPurseBar();
+      refreshDashboard();
+      renderRosterTable(state.players);
+      renderTeamsView();
+    } catch (err) {
+      // Revert/Alert handled in callAppsScript
+    }
+  }
+
+  // 6. EXCEL/CSV IMPORT SYNC DIRECT TO SHEETS
+  function handleExcelUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async function(evt) {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(sheet);
+
+      let newPlayers = [];
+      json.forEach((row, i) => {
+        const pId = row.PlayerID || row['Player ID'] || ('P' + (state.players.length + 101 + i));
+        if (!state.players.some(p => p.PlayerID.toString() === pId.toString())) {
+          newPlayers.push({
+            playerID: pId,
+            playerName: row.PlayerName || row['Player Name'] || row.Name || 'Unknown',
+            mobile: row.Mobile || row['Mobile Number'] || '',
+            age: row.Age || '',
+            area: row.Area || row.Locality || '',
+            role: row.Role || row['Playing Role'] || 'Batsman',
+            battingStyle: row.BattingStyle || row['Batting Style'] || 'Right-Hand',
+            bowlingStyle: row.BowlingStyle || row['Bowling Style'] || 'None',
+            category: row.Category || 'Regular',
+            basePrice: Number(row.BasePrice || row['Base Price'] || 1000),
+            photoURL: row.PhotoURL || ''
+          });
+        }
+      });
+
+      if (newPlayers.length === 0) {
+        alert('No new valid players found in file.');
+        return;
+      }
+
+      setSyncStatus('syncing', `Uploading ${newPlayers.length} players...`);
+      try {
+        await callAppsScript('batchImportPlayers', { players: newPlayers });
+        // Refresh local memory from Google Sheets to maintain 1:1 synchronization
+        await fetchInitialDataFromSheet();
+        alert(`Successfully imported and synced ${newPlayers.length} players to Google Sheets!`);
+      } catch (err) {
+        alert('Failed to upload players to Google Sheets.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // 7. UI DISPLAY & RENDERING FUNCTIONS
+  function switchTab(tab) {
+    ['auction', 'dashboard', 'players', 'teams', 'import'].forEach(t => {
+      document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
+      const btn = document.getElementById(`nav-${t}`);
+      if (t === tab) {
+        btn.className = 'px-4 py-2 text-sm font-bold rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+      } else {
+        btn.className = 'px-4 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white';
+      }
+    });
+    if (tab === 'dashboard') refreshDashboard();
+    if (tab === 'teams') renderTeamsView();
+  }
+
+  function loadPlayerToStage(playerId) {
+    const p = state.players.find(x => x.PlayerID.toString() === playerId.toString());
+    if (!p) return;
+    state.activePlayer = p;
+
+    document.getElementById('stagePhoto').src = p.PhotoURL || 'https://placehold.co/400x500/0f172a/38bdf8?text=' + encodeURIComponent(p.PlayerName);
+    document.getElementById('stagePlayerID').innerText = `ID: ${p.PlayerID}`;
+    document.getElementById('stageCategory').innerText = `Category: ${p.Category || 'Standard'}`;
+    document.getElementById('stageName').innerText = p.PlayerName;
+    document.getElementById('stageBasePrice').innerText = `₹${Number(p.BasePrice).toLocaleString()}`;
+    document.getElementById('stageMobile').innerText = p.Mobile;
+    document.getElementById('stageArea').innerText = p.Area || 'N/A';
+    document.getElementById('stageRole').innerText = p.Role;
+    document.getElementById('stageBatting').innerText = p.BattingStyle || 'Right-Hand';
+    document.getElementById('stageBowling').innerText = p.BowlingStyle || 'Right-Arm';
+    document.getElementById('stageAge').innerText = p.Age || '--';
+
+    const badge = document.getElementById('stageStatusBadge');
+    badge.innerText = p.Status;
+    badge.className = `absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase ${
+      p.Status === 'SOLD' ? 'bg-emerald-500 text-slate-950' : p.Status === 'UNSOLD' ? 'bg-orange-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+    }`;
+
+    document.getElementById('stageSoldPrice').value = p.SoldPrice > 0 ? p.SoldPrice : p.BasePrice;
+    document.getElementById('stageTeamSelect').value = p.SoldTeamID || '';
+    updateSelectedTeamInfo();
+  }
+
+  function updateSelectedTeamInfo() {
+    const teamId = document.getElementById('stageTeamSelect').value;
+    const team = state.teams.find(t => t.TeamID === teamId);
+    document.getElementById('stageOwnerLabel').innerText = team ? `Owner / Captain: ${team.OwnerName}` : 'Owner / Captain: --';
+  }
+
+  function filterAuctionQueue(filterType) {
+    let list = [];
+    if (filterType === 'RE_AUCTION') {
+      list = state.players.filter(p => (p.Status || '').toUpperCase() === 'UNSOLD');
+      if (list.length === 0) {
+        alert('No unsold players available for Re-Auction.');
+        return;
+      }
+    } else {
+      list = state.players.filter(p => (p.Status || '').toUpperCase() === 'PENDING');
+    }
+    renderAuctionQueueChips(list);
+  }
+
+  function renderAuctionQueue(status = 'PENDING') {
+    const list = state.players.filter(p => (p.Status || '').toUpperCase() === status.toUpperCase());
+    renderAuctionQueueChips(list);
+  }
+
+  function renderAuctionQueueChips(playerList) {
+    const container = document.getElementById('auctionQueueList');
+    container.innerHTML = '';
+    if (playerList.length === 0) {
+      container.innerHTML = '<span class="text-xs text-slate-500">Queue is empty</span>';
+      return;
+    }
+
+    playerList.forEach(p => {
+      const chip = document.createElement('button');
+      chip.className = `flex-shrink-0 flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+        state.activePlayer && state.activePlayer.PlayerID === p.PlayerID
+          ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
+          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+      }`;
+      chip.onclick = () => loadPlayerToStage(p.PlayerID);
+      chip.innerHTML = `<span>#${p.PlayerID}</span> <span class="text-white">${p.PlayerName}</span> <span class="text-slate-500">(${p.Role})</span>`;
+      container.appendChild(chip);
+    });
+  }
+
+  function handleAuctionSearch(q) {
+    const query = q.toLowerCase();
+    const match = state.players.find(p => 
+      p.PlayerID.toString().toLowerCase().includes(query) ||
+      p.PlayerName.toLowerCase().includes(query) ||
+      (p.Area && p.Area.toLowerCase().includes(query))
+    );
+    if (match) loadPlayerToStage(match.PlayerID);
+  }
+
+  function renderPurseBar() {
+    const bar = document.getElementById('stickyPurseBar');
+    bar.innerHTML = '';
+
+    state.teams.forEach(t => {
+      const boughtPlayers = state.players.filter(p => p.SoldTeamID === t.TeamID);
+      const totalSpent = boughtPlayers.reduce((acc, cur) => acc + Number(cur.SoldPrice || 0), 0);
+      const balance = t.TotalPurse - totalSpent;
+
+      const chip = document.createElement('div');
+      chip.className = 'flex items-center space-x-2 bg-slate-900 border border-slate-800 px-3 py-1 rounded-full whitespace-nowrap text-xs';
+      chip.innerHTML = `
+        <span>${t.LogoURL || '🏏'}</span>
+        <span class="font-bold text-slate-200">${t.TeamName}</span>
+        <span class="text-slate-500">|</span>
+        <span class="text-slate-400 font-mono">${boughtPlayers.length} players</span>
+        <span class="text-slate-500">|</span>
+        <span class="font-mono font-bold ${balance < 10000 ? 'text-rose-400' : 'text-emerald-400'}">Rem: ₹${balance.toLocaleString()}</span>
+      `;
+      bar.appendChild(chip);
+    });
+  }
+
+  function refreshDashboard() {
+    const total = state.players.length;
+    const sold = state.players.filter(p => p.Status === 'SOLD');
+    const unsold = state.players.filter(p => p.Status === 'UNSOLD');
+    const pending = state.players.filter(p => p.Status === 'PENDING');
+    const totalSpent = sold.reduce((acc, p) => acc + Number(p.SoldPrice || 0), 0);
+
+    document.getElementById('statTotalPlayers').innerText = total;
+    document.getElementById('statSoldPlayers').innerText = sold.length;
+    document.getElementById('statUnsoldPlayers').innerText = unsold.length;
+    document.getElementById('statPendingPlayers').innerText = pending.length;
+    document.getElementById('statTotalSpent').innerText = `₹${totalSpent.toLocaleString()}`;
+
+    // Status Doughnut Chart
+    const dCanvas = document.getElementById('statusDoughnutChart');
+    if (dCanvas) {
+      const dCtx = dCanvas.getContext('2d');
+      if (state.charts.doughnut) state.charts.doughnut.destroy();
+      state.charts.doughnut = new Chart(dCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Sold', 'Unsold', 'Pending'],
+          datasets: [{
+            data: [sold.length, unsold.length, pending.length],
+            backgroundColor: ['#10b981', '#f97316', '#64748b'],
+            borderWidth: 0
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } } }
+      });
+    }
+
+    // Team Spending Bar Chart
+    const bCanvas = document.getElementById('teamSpendingBarChart');
+    if (bCanvas) {
+      const bCtx = bCanvas.getContext('2d');
+      if (state.charts.bar) state.charts.bar.destroy();
+      const teamNames = state.teams.map(t => t.TeamName);
+      const teamSpendings = state.teams.map(t => {
+        return state.players.filter(p => p.SoldTeamID === t.TeamID).reduce((s, p) => s + Number(p.SoldPrice || 0), 0);
+      });
+
+      state.charts.bar = new Chart(bCtx, {
+        type: 'bar',
+        data: {
+          labels: teamNames,
+          datasets: [{
+            label: 'Total Spent (₹)',
+            data: teamSpendings,
+            backgroundColor: '#38bdf8',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    // Top 5 Highest Buys
+    const topList = document.getElementById('topPlayersList');
+    if (topList) {
+      topList.innerHTML = '';
+      const top5 = [...sold].sort((a, b) => Number(b.SoldPrice) - Number(a.SoldPrice)).slice(0, 5);
+      top5.forEach((p, idx) => {
+        const team = state.teams.find(t => t.TeamID === p.SoldTeamID);
+        const item = document.createElement('div');
+        item.className = 'flex justify-between items-center p-2 rounded bg-slate-900/60 border border-slate-800';
+        item.innerHTML = `
+          <div><span class="text-cyan-400 font-bold">#${idx+1}</span> <span class="font-bold text-white">${p.PlayerName}</span> <span class="text-xs text-slate-500">(${team ? team.TeamName : 'Unknown'})</span></div>
+          <span class="font-mono font-bold text-emerald-400">₹${Number(p.SoldPrice).toLocaleString()}</span>
+        `;
+        topList.appendChild(item);
+      });
+    }
+  }
+
+  function filterRoster() {
+    const search = document.getElementById('rosterSearch').value.toLowerCase();
+    const statusFilter = document.getElementById('rosterStatusFilter').value;
+    const roleFilter = document.getElementById('rosterRoleFilter').value;
+
+    const filtered = state.players.filter(p => {
+      const matchesSearch = p.PlayerName.toLowerCase().includes(search) || p.PlayerID.toString().toLowerCase().includes(search) || (p.Area && p.Area.toLowerCase().includes(search));
+      const matchesStatus = statusFilter === 'ALL' || p.Status === statusFilter;
+      const matchesRole = roleFilter === 'ALL' || p.Role === roleFilter;
+      return matchesSearch && matchesStatus && matchesRole;
+    });
+    renderRosterTable(filtered);
+  }
+
+  function renderRosterTable(players) {
+    const tbody = document.getElementById('rosterTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    players.forEach(p => {
+      const team = state.teams.find(t => t.TeamID === p.SoldTeamID);
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-900/40 transition';
+      tr.innerHTML = `
+        <td class="p-3"><img src="${p.PhotoURL || 'https://placehold.co/100x100'}" class="w-8 h-8 rounded-full object-cover"></td>
+        <td class="p-3 font-mono font-bold text-slate-400">${p.PlayerID}</td>
+        <td class="p-3">
+          <span class="font-bold text-white block">${p.PlayerName}</span>
+          <span class="text-xs text-slate-500">${p.Mobile}</span>
+        </td>
+        <td class="p-3">
+          <span class="text-xs font-semibold text-cyan-400 block">${p.Role}</span>
+          <span class="text-xs text-slate-500">${p.BattingStyle || ''} | ${p.BowlingStyle || ''}</span>
+        </td>
+        <td class="p-3 text-slate-300 text-xs">${p.Area || '--'}</td>
+        <td class="p-3 font-mono text-slate-300">₹${Number(p.BasePrice).toLocaleString()}</td>
+        <td class="p-3">
+          <span class="px-2 py-0.5 rounded text-[11px] font-black uppercase ${
+            p.Status === 'SOLD' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40' :
+            p.Status === 'UNSOLD' ? 'bg-orange-950 text-orange-400 border border-orange-500/40' : 'bg-slate-800 text-slate-400'
+          }">${p.Status}</span>
+        </td>
+        <td class="p-3 text-slate-300">${team ? team.TeamName : '--'}</td>
+        <td class="p-3 font-mono font-bold ${p.SoldPrice > 0 ? 'text-emerald-400' : 'text-slate-500'}">₹${Number(p.SoldPrice || 0).toLocaleString()}</td>
+        <td class="p-3 text-right">
+          <button onclick="loadPlayerToStage('${p.PlayerID}'); switchTab('auction')" class="px-2 py-1 bg-cyan-600/30 text-cyan-300 rounded hover:bg-cyan-600 hover:text-white text-xs font-bold">Auction</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderTeamsView() {
+    const grid = document.getElementById('teamsCardGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    state.teams.forEach(t => {
+      const squad = state.players.filter(p => p.SoldTeamID === t.TeamID);
+      const spent = squad.reduce((sum, cur) => sum + Number(cur.SoldPrice || 0), 0);
+      const rem = t.TotalPurse - spent;
+
+      const card = document.createElement('div');
+      card.className = 'bg-brandCard border border-slate-800 rounded-xl p-5 space-y-4';
+      card.innerHTML = `
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center space-x-3">
+            <span class="text-3xl">${t.LogoURL || '🏏'}</span>
+            <div>
+              <h4 class="font-bold text-white text-base">${t.TeamName}</h4>
+              <p class="text-xs text-slate-400">Owner: <span class="text-slate-200">${t.OwnerName}</span></p>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+          <div class="bg-slate-900 p-2 rounded">
+            <span class="text-slate-500 block">Squad</span>
+            <span class="font-bold text-white font-mono text-sm">${squad.length}</span>
+          </div>
+          <div class="bg-slate-900 p-2 rounded">
+            <span class="text-slate-500 block">Spent</span>
+            <span class="font-bold text-cyan-400 font-mono text-sm">₹${spent.toLocaleString()}</span>
+          </div>
+          <div class="bg-slate-900 p-2 rounded">
+            <span class="text-slate-500 block">Remaining</span>
+            <span class="font-bold font-mono text-sm ${rem < 10000 ? 'text-rose-400' : 'text-emerald-400'}">₹${rem.toLocaleString()}</span>
+          </div>
+        </div>
+        <div class="border-t border-slate-800/80 pt-3">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Purchased Players</span>
+          <div class="space-y-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
+            ${squad.length === 0 ? '<span class="text-xs text-slate-600">No players purchased yet</span>' : squad.map(p => `
+              <div class="flex justify-between items-center text-xs p-1.5 rounded bg-slate-900/60">
+                <span class="text-slate-200 font-medium">${p.PlayerName} <span class="text-slate-500">(${p.Role})</span></span>
+                <span class="font-mono text-emerald-400 font-bold">₹${Number(p.SoldPrice).toLocaleString()}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function populateTeamDropdowns() {
+    const select = document.getElementById('stageTeamSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Choose Purchasing Team --</option>';
+    state.teams.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.TeamID;
+      opt.innerText = `${t.TeamName} (${t.OwnerName})`;
+      select.appendChild(opt);
+    });
+  }
+
+  function exportToExcel() {
+    const exportData = state.players.map(p => {
+      const team = state.teams.find(t => t.TeamID === p.SoldTeamID);
+      return {
+        'Player ID': p.PlayerID,
+        'Player Name': p.PlayerName,
+        'Mobile': p.Mobile,
+        'Area': p.Area,
+        'Role': p.Role,
+        'Base Price': p.BasePrice,
+        'Status': p.Status,
+        'Purchased Team': team ? team.TeamName : '',
+        'Owner': team ? team.OwnerName : '',
+        'Sold Price': p.SoldPrice
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'GBCL_Live_Export');
+    XLSX.writeFile(wb, 'GBCL_Live_Auction_Export.xlsx');
+  }
+
+  function exportToPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('MMN GBCL Auction Day - Squad Summary', 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Exported from Google Sheets: ${new Date().toLocaleString()}`, 14, 22);
+
+    const tableData = state.players.filter(p => p.Status === 'SOLD').map(p => {
+      const team = state.teams.find(t => t.TeamID === p.SoldTeamID);
+      return [p.PlayerID, p.PlayerName, p.Role, team ? team.TeamName : '', p.SoldPrice.toString()];
+    });
+
+    doc.autoTable({
+      startY: 28,
+      head: [['ID', 'Player Name', 'Role', 'Purchased Team', 'Sold Price (INR)']],
+      body: tableData
+    });
+
+    doc.save('GBCL_Auction_Report.pdf');
+  }
+
+  // 8. AUTO-INITIALIZE ON PAGE LOAD
+  window.onload = () => {
+    fetchInitialDataFromSheet();
+  };
+</script>
+
+</body>
+</html>
