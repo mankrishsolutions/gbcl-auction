@@ -1,15 +1,14 @@
 /**
  * GBCL AUCTION DAY MANAGER - LOGIC ENGINE
- * Connected to Cloudflare Worker API -> Google Apps Script / Drive / Sheets
  */
 
-// 1. CONFIGURATION
 const CONFIG = {
   // Your Cloudflare Worker URL:
-  WORKER_API_URL: 'https://gbcl-auction-api.mankrishsolutions.workers.dev'
+  WORKER_API_URL: 'https://gbcl-auction-api.mankrishsolutions.workers.dev',
+  // Direct Google Spreadsheet ID fallback:
+  SHEET_ID: '1V8lK3fQ2Gq1b54y01vJ-9mYl_3rV9iC-8jA5mQ6nB8k'
 };
 
-// 2. STATE STORAGE
 let state = {
   players: [],
   teams: [],
@@ -18,7 +17,7 @@ let state = {
   activePlayer: null
 };
 
-// 3. API CALL VIA CLOUDFLARE WORKER
+// 1. API REQUEST WITH TIMEOUT & ROBUST PARSING
 async function apiRequest(endpoint, method = 'GET', body = null) {
   const baseUrl = CONFIG.WORKER_API_URL.replace(/\/+$/, '');
   const url = endpoint.startsWith('?') ? `${baseUrl}/${endpoint}` : `${baseUrl}${endpoint}`;
@@ -33,114 +32,186 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
 
   const response = await fetch(url, options);
   if (!response.ok) {
-    throw new Error(`HTTP Error: ${response.status}`);
+    throw new Error(`Worker HTTP ${response.status}`);
   }
   return await response.json();
 }
 
-// 4. LOAD INITIAL DATA
-async function fetchInitialData() {
-  try {
-    setSyncStatus('syncing', 'Loading Sheet...');
-
-    const data = await apiRequest('?action=getInitialData');
-    if (!data || !data.success) throw new Error(data ? data.error : 'Server error');
-
-    // Clean Players
-    state.players = (data.players || []).map(p => ({
-      ...p,
-      PlayerID: p.PlayerID || '',
-      PlayerName: p.PlayerName || '',
-      BasePrice: Number(p.BasePrice || 0),
-      SoldPrice: Number(p.SoldPrice || 0),
-      Status: (p.Status || 'PENDING').toString().toUpperCase().trim(),
-      Age: p.Age || '',
-      Area: p.Area || '',
-      Role: p.Role || 'Batsman',
-      BattingStyle: p.BattingStyle || 'Right Hand',
-      BowlingStyle: p.BowlingStyle || 'None',
-      PhotoURL: p.PhotoURL && p.PhotoURL !== '-' ? p.PhotoURL : ''
-    }));
-
-    // Clean Teams
-    state.teams = (data.teams || []).map(t => ({
-      ...t,
-      TeamID: t.TeamID || '',
-      TeamName: t.TeamName || '',
-      OwnerName: t.OwnerName || '',
-      TotalPurse: Number(t.TotalPurse || 100000),
-      LogoURL: t.LogoURL && t.LogoURL !== '-' ? t.LogoURL : '🏏'
-    }));
-
-    state.results = data.results || [];
-    state.logs = data.logs || [];
-
-    // Populate UI
-    populateTeamDropdowns();
-    renderPurseBar();
-    renderQueue('PENDING');
-
-    // Render Subsections
-    renderTeamsLedgers();
-    renderPlayerCardsGrid('upcoming');
-    renderPlayerCardsGrid('sold');
-    renderPlayerCardsGrid('unsold');
-    renderUpdatesFeed();
-
-    // Load active player on stage
-    const pending = state.players.filter(p => p.Status === 'PENDING');
-    if (pending.length > 0) {
-      loadPlayerToStage(pending[0].PlayerID);
-    } else if (state.players.length > 0) {
-      loadPlayerToStage(state.players[0].PlayerID);
+// 2. DIRECT GVZ FALLBACK (NEVER BLOCKS IF WORKER IS DOWN)
+async function fetchSheetDirect(tabName) {
+  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+  const res = await fetch(url);
+  const txt = await res.text();
+  const json = JSON.parse(txt.substring(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+  const headers = json.table.cols.map(c => (c && c.label) ? c.label.trim() : '');
+  
+  return json.table.rows.map(row => {
+    let item = {};
+    if (row && row.c) {
+      row.c.forEach((cell, i) => {
+        const col = headers[i];
+        if (col) {
+          item[col] = cell && cell.v !== null && cell.v !== undefined ? cell.v : '';
+        }
+      });
     }
-
-    setSyncStatus('online', 'Live Synced');
-  } catch (err) {
-    console.error('Fetch error:', err);
-    setSyncStatus('error', 'Sync Failed');
-  }
+    return item;
+  });
 }
 
-// 5. STAGE MANAGEMENT
+// 3. MASTER DATA FETCHER (WORKER FIRST -> GVZ FALLBACK)
+async function fetchInitialData() {
+  setSyncStatus('syncing', 'Loading Sheet...');
+
+  let rawPlayers = [];
+  let rawTeams = [];
+  let rawLogs = [];
+
+  try {
+    // Attempt Worker API first
+    const data = await apiRequest('?action=getInitialData');
+    if (data && data.success) {
+      rawPlayers = data.players || [];
+      rawTeams = data.teams || [];
+      rawLogs = data.logs || [];
+    } else {
+      throw new Error(data ? data.error : 'Empty response from worker');
+    }
+  } catch (workerErr) {
+    console.warn('Worker API uncontactable, falling back to direct Sheet gviz:', workerErr);
+    try {
+      const [p, t] = await Promise.all([
+        fetchSheetDirect('Players'),
+        fetchSheetDirect('Teams')
+      ]);
+      rawPlayers = p;
+      rawTeams = t;
+    } catch (sheetErr) {
+      console.error('All data sources failed:', sheetErr);
+      setSyncStatus('error', 'Sync Failed');
+      return;
+    }
+  }
+
+  // Format Players
+  state.players = rawPlayers.map(p => ({
+    ...p,
+    PlayerID: p.PlayerID || '',
+    PlayerName: p.PlayerName || '',
+    BasePrice: Number(p.BasePrice || 0),
+    SoldPrice: Number(p.SoldPrice || 0),
+    Status: (p.Status || 'PENDING').toString().toUpperCase().trim(),
+    Age: p.Age || '',
+    Area: p.Area || '',
+    Role: p.Role || 'Batsman',
+    BattingStyle: p.BattingStyle || 'Right Hand',
+    BowlingStyle: p.BowlingStyle || 'None',
+    PhotoURL: p.PhotoURL && p.PhotoURL !== '-' ? p.PhotoURL : ''
+  }));
+
+  // Format Teams
+  state.teams = rawTeams.map(t => ({
+    ...t,
+    TeamID: t.TeamID || '',
+    TeamName: t.TeamName || '',
+    OwnerName: t.OwnerName || '',
+    TotalPurse: Number(t.TotalPurse || 100000),
+    LogoURL: t.LogoURL && t.LogoURL !== '-' ? t.LogoURL : '🏏'
+  }));
+
+  state.logs = rawLogs;
+
+  // Render Everything
+  populateTeamDropdowns();
+  renderPurseBar();
+  renderQueue('PENDING');
+  renderTeamsLedgers();
+  renderPlayerCardsGrid('upcoming');
+  renderPlayerCardsGrid('sold');
+  renderPlayerCardsGrid('unsold');
+  renderUpdatesFeed();
+
+  // Load first pending player onto stage
+  const pending = state.players.filter(p => p.Status === 'PENDING');
+  if (pending.length > 0) {
+    loadPlayerToStage(pending[0].PlayerID);
+  } else if (state.players.length > 0) {
+    loadPlayerToStage(state.players[0].PlayerID);
+  }
+
+  setSyncStatus('online', 'Live Synced');
+}
+
+// 4. STAGE CONTROLLER
 function loadPlayerToStage(id) {
   const p = state.players.find(x => x.PlayerID.toString() === id.toString());
   if (!p) return;
   state.activePlayer = p;
 
-  document.getElementById('stagePhoto').src = p.PhotoURL || `https://placehold.co/400x500/0a1128/38bdf8?text=${encodeURIComponent(p.PlayerName)}`;
-  document.getElementById('stagePlayerID').innerText = `ID: #${p.PlayerID}`;
-  document.getElementById('stageName').innerText = p.PlayerName;
-  document.getElementById('stageRoleBadge').innerText = p.Role;
-  document.getElementById('stageBasePrice').innerText = `₹${p.BasePrice.toLocaleString()}`;
-  document.getElementById('stageMobile').innerText = p.Mobile;
-  document.getElementById('stageArea').innerText = p.Area || 'N/A';
-  document.getElementById('stageBatting').innerText = p.BattingStyle;
-  document.getElementById('stageBowling').innerText = p.BowlingStyle;
-  document.getElementById('stageAge').innerText = p.Age || '--';
+  const photoEl = document.getElementById('stagePhoto');
+  if (photoEl) photoEl.src = p.PhotoURL || `https://placehold.co/400x500/0a1128/38bdf8?text=${encodeURIComponent(p.PlayerName)}`;
+  
+  const idEl = document.getElementById('stagePlayerID');
+  if (idEl) idEl.innerText = `ID: #${p.PlayerID}`;
+
+  const nameEl = document.getElementById('stageName');
+  if (nameEl) nameEl.innerText = p.PlayerName;
+
+  const roleEl = document.getElementById('stageRoleBadge');
+  if (roleEl) roleEl.innerText = p.Role;
+
+  const baseEl = document.getElementById('stageBasePrice');
+  if (baseEl) baseEl.innerText = `₹${p.BasePrice.toLocaleString()}`;
+
+  const mobEl = document.getElementById('stageMobile');
+  if (mobEl) mobEl.innerText = p.Mobile || '--';
+
+  const areaEl = document.getElementById('stageArea');
+  if (areaEl) areaEl.innerText = p.Area || 'N/A';
+
+  const batEl = document.getElementById('stageBatting');
+  if (batEl) batEl.innerText = p.BattingStyle || '--';
+
+  const bowlEl = document.getElementById('stageBowling');
+  if (bowlEl) bowlEl.innerText = p.BowlingStyle || '--';
+
+  const ageEl = document.getElementById('stageAge');
+  if (ageEl) ageEl.innerText = p.Age || '--';
 
   const badge = document.getElementById('stageBadge');
-  badge.innerText = p.Status;
-  badge.className = `card-status-badge ${p.Status === 'SOLD' ? 'sold' : p.Status === 'UNSOLD' ? 'unsold' : ''}`;
+  if (badge) {
+    badge.innerText = p.Status;
+    badge.className = `card-status-badge ${p.Status === 'SOLD' ? 'sold' : p.Status === 'UNSOLD' ? 'unsold' : ''}`;
+  }
 
-  document.getElementById('stageSoldPrice').value = p.SoldPrice > 0 ? p.SoldPrice : p.BasePrice;
-  document.getElementById('stageTeamSelect').value = p.SoldTeamID || '';
+  const soldInput = document.getElementById('stageSoldPrice');
+  if (soldInput) soldInput.value = p.SoldPrice > 0 ? p.SoldPrice : p.BasePrice;
+
+  const teamSel = document.getElementById('stageTeamSelect');
+  if (teamSel) teamSel.value = p.SoldTeamID || '';
+
   updateSelectedTeamInfo();
 }
 
 function updateSelectedTeamInfo() {
-  const teamId = document.getElementById('stageTeamSelect').value;
-  const team = state.teams.find(t => t.TeamID.toString() === teamId.toString());
-  document.getElementById('stageOwnerLabel').innerText = team ? `Owner: ${team.OwnerName}` : 'Owner: --';
+  const select = document.getElementById('stageTeamSelect');
+  const label = document.getElementById('stageOwnerLabel');
+  if (!select || !label) return;
+
+  const team = state.teams.find(t => t.TeamID.toString() === select.value.toString());
+  label.innerText = team ? `Owner: ${team.OwnerName}` : 'Owner: --';
 }
 
-// 6. HAMMER ACTION (SOLD / UNSOLD)
+// 5. RECORD AUCTION
 async function recordAuction(status) {
   if (!state.activePlayer) return alert('Select a player first.');
 
   const p = state.activePlayer;
-  const teamId = document.getElementById('stageTeamSelect').value;
-  const soldPrice = Number(document.getElementById('stageSoldPrice').value);
+  const teamSelect = document.getElementById('stageTeamSelect');
+  const priceInput = document.getElementById('stageSoldPrice');
+
+  const teamId = teamSelect ? teamSelect.value : '';
+  const soldPrice = priceInput ? Number(priceInput.value) : 0;
 
   if (status === 'SOLD' && !teamId) {
     return alert('Please select a purchasing team.');
@@ -149,12 +220,10 @@ async function recordAuction(status) {
   const team = state.teams.find(t => t.TeamID.toString() === teamId.toString());
   const teamName = team ? team.TeamName : '';
 
-  // Update locally immediately
   p.Status = status;
   p.SoldTeamID = status === 'SOLD' ? teamId : '';
   p.SoldPrice = status === 'SOLD' ? soldPrice : 0;
 
-  // Add live update row to logs
   state.logs.unshift({
     timestamp: new Date().toLocaleTimeString(),
     message: `${p.PlayerName} ${status === 'SOLD' ? 'SOLD TO ' + teamName + ' (' + soldPrice + ')' : 'MARKED UNSOLD'}`
@@ -189,10 +258,10 @@ async function recordAuction(status) {
   }
 }
 
-// 7. RENDER PLAYER CARDS GRID (SOLD / UNSOLD / UPCOMING)
+// 6. RENDER GRIDS
 function renderPlayerCardsGrid(type) {
-  let targetGrid = document.getElementById(`${type}Grid`);
-  let totalBadge = document.getElementById(`${type}TotalCount`);
+  const targetGrid = document.getElementById(`${type}Grid`);
+  const totalBadge = document.getElementById(`${type}TotalCount`);
   if (!targetGrid) return;
 
   let list = [];
@@ -200,7 +269,7 @@ function renderPlayerCardsGrid(type) {
   else if (type === 'unsold') list = state.players.filter(p => p.Status === 'UNSOLD');
   else if (type === 'upcoming') list = state.players.filter(p => p.Status === 'PENDING');
 
-  totalBadge.innerText = `Total : ${list.length}`;
+  if (totalBadge) totalBadge.innerText = `Total : ${list.length}`;
   targetGrid.innerHTML = '';
 
   list.forEach(p => {
@@ -231,28 +300,31 @@ function renderPlayerCardsGrid(type) {
 }
 
 function filterPlayerGrid(type) {
-  const query = document.getElementById(`${type}Search`).value.toLowerCase();
-  const cards = document.getElementById(`${type}Grid`).getElementsByClassName('player-mini-card');
+  const input = document.getElementById(`${type}Search`);
+  if (!input) return;
+  const query = input.value.toLowerCase();
+  const cards = document.getElementById(`${type}Grid`)?.getElementsByClassName('player-mini-card') || [];
   Array.from(cards).forEach(card => {
-    const text = card.innerText.toLowerCase();
-    card.style.display = text.includes(query) ? 'flex' : 'none';
+    card.style.display = card.innerText.toLowerCase().includes(query) ? 'flex' : 'none';
   });
 }
 
-// 8. RENDER TEAMS LEDGERS
+// 7. RENDER TEAMS
 function renderTeamsLedgers() {
   const grid = document.getElementById('teamsCardGrid');
   const quickTabs = document.getElementById('teamQuickTabs');
   if (!grid) return;
 
   grid.innerHTML = '';
-  quickTabs.innerHTML = '';
+  if (quickTabs) quickTabs.innerHTML = '';
 
   state.teams.forEach(t => {
-    const chip = document.createElement('button');
-    chip.className = 'team-chip';
-    chip.innerText = t.TeamName.substring(0, 6);
-    quickTabs.appendChild(chip);
+    if (quickTabs) {
+      const chip = document.createElement('button');
+      chip.className = 'team-chip';
+      chip.innerText = t.TeamName.substring(0, 6);
+      quickTabs.appendChild(chip);
+    }
 
     const squad = state.players.filter(p => p.SoldTeamID.toString() === t.TeamID.toString());
     const used = squad.reduce((acc, p) => acc + Number(p.SoldPrice || 0), 0);
@@ -265,7 +337,6 @@ function renderTeamsLedgers() {
         <div class="team-logo-sq">${t.LogoURL || '🏏'}</div>
         <h4 class="team-card-title">${t.TeamName}</h4>
       </div>
-
       <div class="team-metrics-row">
         <div class="metric-item">
           <span class="val blue">${(t.TotalPurse / 100000).toFixed(2)} LAC</span>
@@ -284,7 +355,6 @@ function renderTeamsLedgers() {
           <span class="lbl">PLAYERS</span>
         </div>
       </div>
-
       <div class="team-roster-list">
         ${squad.map((p, idx) => `
           <div class="roster-row">
@@ -298,7 +368,7 @@ function renderTeamsLedgers() {
   });
 }
 
-// 9. RENDER UPDATES TIMELINE
+// 8. RENDER UPDATES
 function renderUpdatesFeed() {
   const feed = document.getElementById('updatesTimeline');
   if (!feed) return;
@@ -320,7 +390,7 @@ function renderUpdatesFeed() {
   });
 }
 
-// 10. BOTTOM PURSE TRACKER
+// 9. PURSE BAR
 function renderPurseBar() {
   const bar = document.getElementById('stickyPurseBar');
   if (!bar) return;
@@ -338,7 +408,7 @@ function renderPurseBar() {
   });
 }
 
-// 11. QUEUE CAROUSEL
+// 10. QUEUE
 function renderQueue(status = 'PENDING') {
   const container = document.getElementById('arenaQueueList');
   if (!container) return;
@@ -358,7 +428,7 @@ function filterQueue(type) {
   renderQueue(type === 'RE_AUCTION' ? 'UNSOLD' : 'PENDING');
 }
 
-// 12. ADD PLAYER & PHOTO COMPRESSION
+// 11. MODAL CONTROLS & PHOTO
 async function compressPhoto(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -444,7 +514,6 @@ async function submitNewPlayer(e) {
   }
 }
 
-// 13. ADD TEAM
 async function submitNewTeam(e) {
   e.preventDefault();
   const btn = document.getElementById('btnSaveTeam');
@@ -474,7 +543,7 @@ async function submitNewTeam(e) {
   }
 }
 
-// SIDEBAR CONTROL WITH AUTO-HIDE & UNHIDE LOGIC
+// 12. SIDEBAR & NAVIGATION
 let sidebarTimer = null;
 
 function toggleSidebar(open) {
@@ -496,80 +565,16 @@ function toggleSidebar(open) {
   }
 }
 
-// SETUP AUTO-HIDE AND UNHIDE LISTENERS
-function setupSidebarAutoHide() {
-  const sidebar = document.getElementById('appSidebar');
-  const edgeDetector = document.getElementById('sidebarEdgeDetector');
-
-  if (!sidebar) return;
-
-  // 1. Desktop: Hover left edge to unhide
-  if (edgeDetector) {
-    edgeDetector.addEventListener('mouseenter', () => {
-      toggleSidebar(true);
-    });
-  }
-
-  // 2. Desktop: Mouse leaves sidebar -> auto-hide with 400ms buffer
-  sidebar.addEventListener('mouseleave', () => {
-    // Only auto-hide on desktop screens
-    if (window.innerWidth >= 768) {
-      sidebarTimer = setTimeout(() => {
-        toggleSidebar(false);
-      }, 350);
-    }
-  });
-
-  sidebar.addEventListener('mouseenter', () => {
-    if (sidebarTimer) {
-      clearTimeout(sidebarTimer);
-      sidebarTimer = null;
-    }
-  });
-
-  // 3. Mobile Touch Gestures: Swipe from edge to open, swipe left to close
-  let touchStartX = 0;
-  let touchStartY = 0;
-
-  window.addEventListener('touchstart', (e) => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-
-  window.addEventListener('touchend', (e) => {
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    const diffX = touchEndX - touchStartX;
-    const diffY = touchEndY - touchStartY;
-
-    // Ensure horizontal gesture intent (not vertical scroll)
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
-      // Swiped right from left boundary (< 35px) -> Open sidebar
-      if (diffX > 0 && touchStartX < 35) {
-        toggleSidebar(true);
-      }
-      // Swiped left while sidebar is open -> Close sidebar
-      else if (diffX < 0 && sidebar.classList.contains('open')) {
-        toggleSidebar(false);
-      }
-    }
-  }, { passive: true });
-}
-
 function navigateTab(tabId) {
-  // Hide all panes
   document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.side-nav-item').forEach(btn => btn.classList.remove('active'));
 
-  // Show active pane
   const activePane = document.getElementById(`tab-${tabId}`);
   if (activePane) activePane.classList.add('active');
 
-  // Highlight sidebar item
   const matchingBtn = Array.from(document.querySelectorAll('.side-nav-item')).find(b => b.getAttribute('onclick')?.includes(tabId));
   if (matchingBtn) matchingBtn.classList.add('active');
 
-  // Update header title
   const titles = {
     intro: 'Tournament Intro',
     arena: 'Auction Arena',
@@ -583,7 +588,6 @@ function navigateTab(tabId) {
   const titleEl = document.getElementById('pageHeaderTitle');
   if (titleEl) titleEl.innerText = titles[tabId] || 'GBCL Auction';
 
-  // Close sidebar on mobile after tapping
   toggleSidebar(false);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -593,11 +597,12 @@ function toggleTheme() {
   const current = html.getAttribute('data-theme');
   const next = current === 'dark' ? 'light' : 'dark';
   html.setAttribute('data-theme', next);
-  document.getElementById('themeToggleBtn').innerText = next === 'dark' ? '🌙' : '☀️';
+  const btn = document.getElementById('themeToggleBtn');
+  if (btn) btn.innerText = next === 'dark' ? '🌙' : '☀️';
 }
 
-function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function openModal(id) { document.getElementById(id)?.classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id)?.classList.add('hidden'); }
 
 function populateTeamDropdowns() {
   const sel = document.getElementById('stageTeamSelect');
@@ -616,7 +621,54 @@ function setSyncStatus(type, msg) {
   if (dot) dot.className = `status-dot ${type}`;
 }
 
-// 15. EXPORT UTILITIES
+// 13. SIDEBAR AUTO-HIDE
+function setupSidebarEvents() {
+  const sidebar = document.getElementById('appSidebar');
+  const edgeDetector = document.getElementById('sidebarEdgeDetector');
+
+  if (edgeDetector) {
+    edgeDetector.addEventListener('mouseenter', () => toggleSidebar(true));
+  }
+
+  if (sidebar) {
+    sidebar.addEventListener('mouseleave', () => {
+      if (window.innerWidth >= 768) {
+        sidebarTimer = setTimeout(() => toggleSidebar(false), 350);
+      }
+    });
+
+    sidebar.addEventListener('mouseenter', () => {
+      if (sidebarTimer) {
+        clearTimeout(sidebarTimer);
+        sidebarTimer = null;
+      }
+    });
+  }
+
+  // Mobile Swipe Detection
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  window.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  window.addEventListener('touchend', (e) => {
+    const diffX = e.changedTouches[0].clientX - touchStartX;
+    const diffY = e.changedTouches[0].clientY - touchStartY;
+
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+      if (diffX > 0 && touchStartX < 35) {
+        toggleSidebar(true);
+      } else if (diffX < 0 && sidebar?.classList.contains('open')) {
+        toggleSidebar(false);
+      }
+    }
+  }, { passive: true });
+}
+
+// 14. EXPORTS
 function exportToExcel() {
   const rows = state.players.map(p => {
     const team = state.teams.find(t => t.TeamID.toString() === p.SoldTeamID.toString());
@@ -648,9 +700,8 @@ function exportToPDF() {
   doc.save('GBCL_Auction_Report.pdf');
 }
 
-// Call inside window.onload
-const originalInit = window.onload;
-window.onload = () => {
-  if (typeof originalInit === 'function') originalInit();
-  setupSidebarAutoHide();
-};
+// 15. SECURE INITIALIZATION RUNNER
+document.addEventListener('DOMContentLoaded', () => {
+  fetchInitialData();
+  setupSidebarEvents();
+});
