@@ -933,34 +933,42 @@
       document.getElementById(modalId).classList.add('hidden');
     }
 
-    async function compressPhoto(file) {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            let width = img.width;
-            let height = img.height;
-            const MAX = 400;
-            if (width > height && width > MAX) {
-              height = Math.round((height * MAX) / width);
-              width = MAX;
-            } else if (height > MAX) {
-              width = Math.round((width * MAX) / height);
-              height = MAX;
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.7)); // Clean Base64 JPEG
-          };
-          img.src = e.target.result;
+    // 1. Reliable Base64 Compressor
+  async function compressPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("File read error"));
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("Image load error"));
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX = 400;
+
+          if (width > height && width > MAX) {
+            height = Math.round((height * MAX) / width);
+            width = MAX;
+          } else if (height > MAX) {
+            width = Math.round((width * MAX) / height);
+            height = MAX;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Export pure Base64 string directly
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          resolve(dataUrl);
         };
-        reader.readAsDataURL(file);
-      });
-    }
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 
     async function previewPlayerImage(input) {
       const preview = document.getElementById('newPlayerPhotoPreview');
@@ -974,54 +982,59 @@
       }
     }
 
-    // 11. CLEAN ASYNC SUBMISSIONS VIA CLOUDFLARE WORKER
-    async function submitNewPlayer(e) {
-      e.preventDefault();
-      const btn = document.getElementById('btnSavePlayer');
-      btn.disabled = true;
-      btn.innerText = 'Saving to Drive & Sheet...';
-      setSyncStatus('syncing', 'Saving Player...');
+    // 2. Submit Player with Validation
+  async function submitNewPlayer(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSavePlayer');
+    btn.disabled = true;
+    btn.innerText = 'Compressing & saving...';
+    setSyncStatus('syncing', 'Saving Player...');
 
-      const fileInput = document.getElementById('newPlayerPhotoFile');
-      let imageBase64 = '';
-      let imageName = '';
+    const fileInput = document.getElementById('newPlayerPhotoFile');
+    let imageBase64 = '';
+    let imageName = '';
 
-      if (fileInput.files && fileInput.files[0]) {
-        imageName = fileInput.files[0].name;
-        imageBase64 = await compressPhoto(fileInput.files[0]);
-      }
-
-      const payload = {
-        playerID: document.getElementById('newPlayerID').value.trim(),
-        playerName: document.getElementById('newPlayerName').value.trim(),
-        mobile: document.getElementById('newPlayerMobile').value.trim(),
-        age: document.getElementById('newPlayerAge').value,
-        area: document.getElementById('newPlayerArea').value.trim(),
-        basePrice: Number(document.getElementById('newPlayerBasePrice').value),
-        role: document.getElementById('newPlayerRole').value,
-        battingStyle: document.getElementById('newPlayerBatting').value,
-        bowlingStyle: document.getElementById('newPlayerBowling').value.trim(),
-        imageBase64: imageBase64,
-        imageName: imageName,
-        imageType: 'image/jpeg'
-      };
-
+    if (fileInput.files && fileInput.files[0]) {
       try {
-        const res = await apiRequest('', 'POST', { action: 'addPlayer', payload: payload });
-        if (!res.success) throw new Error(res.error || 'Server rejected');
-
-        closeModal('modalAddPlayer');
-        await fetchInitialData();
-        alert(`Player "${payload.playerName}" saved to Google Sheets and Drive successfully!`);
-      } catch (err) {
-        console.error('Error saving player:', err);
-        alert('Failed to save player: ' + err.message);
-        setSyncStatus('error', 'Save Failed');
-      } finally {
-        btn.disabled = false;
-        btn.innerText = 'Save Player';
+        const file = fileInput.files[0];
+        imageName = file.name;
+        imageBase64 = await compressPhoto(file);
+      } catch (imgErr) {
+        console.error("Image processing failed:", imgErr);
       }
     }
+
+    const payload = {
+      playerID: document.getElementById('newPlayerID').value.trim(),
+      playerName: document.getElementById('newPlayerName').value.trim(),
+      mobile: document.getElementById('newPlayerMobile').value.trim(),
+      age: document.getElementById('newPlayerAge').value,
+      area: document.getElementById('newPlayerArea').value.trim(),
+      basePrice: Number(document.getElementById('newPlayerBasePrice').value),
+      role: document.getElementById('newPlayerRole').value,
+      battingStyle: document.getElementById('newPlayerBatting').value,
+      bowlingStyle: document.getElementById('newPlayerBowling').value.trim(),
+      imageBase64: imageBase64, // Verified Data URL
+      imageName: imageName,
+      imageType: 'image/jpeg'
+    };
+
+    try {
+      const res = await apiRequest('', 'POST', { action: 'addPlayer', payload: payload });
+      if (!res.success) throw new Error(res.error || 'Server rejected');
+
+      closeModal('modalAddPlayer');
+      await fetchInitialData();
+      alert(`Player "${payload.playerName}" saved with photograph successfully!`);
+    } catch (err) {
+      console.error('Error saving player:', err);
+      alert('Failed to save player: ' + err.message);
+      setSyncStatus('error', 'Save Failed');
+    } finally {
+      btn.disabled = false;
+      btn.innerText = 'Save Player';
+    }
+  }
 
     async function submitNewTeam(e) {
       e.preventDefault();
