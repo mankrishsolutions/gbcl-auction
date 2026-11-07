@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GBCL Auction Day Manager</title>
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- SheetJS & jsPDF CDN for Exports -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+  <!-- TOP HEADER -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="app-logo">G</div>
+      <div>
+        <h1 class="app-title">GBCL AUCTION DAY MANAGER</h1>
+        <p class="app-subtitle">MMN Golden Boys Champions League</p>
+      </div>
+    </div>
+
+    <!-- MAIN PILL NAVIGATION -->
+    <nav class="nav-pills">
+      <button class="nav-btn active" onclick="showTab('intro')">Intro</button>
+      <button class="nav-btn" onclick="showTab('arena')">Auction Arena</button>
+      <button class="nav-btn" onclick="showTab('teams')">Teams</button>
+      <button class="nav-btn" onclick="showTab('upcoming')">Upcoming Players</button>
+      <button class="nav-btn highlight-sold" onclick="showTab('sold')">Sold Players</button>
+      <button class="nav-btn" onclick="showTab('unsold')">Unsold Players</button>
+      <button class="nav-btn highlight-orange" onclick="showTab('updates')">Updates</button>
+      <button class="nav-btn" onclick="showTab('exports')">Reports</button>
+    </nav>
+
+    <!-- HEADER CONTROLS (Theme & Sync) -->
+    <div class="header-right">
+      <button id="themeToggleBtn" class="theme-toggle" onclick="toggleTheme()" title="Switch Light/Dark Theme">🌙</button>
+      <div class="sync-status">
+        <span id="syncDot" class="status-dot"></span>
+        <span id="syncText">Connecting...</span>
+        <button class="icon-refresh" onclick="fetchInitialData()" title="Refresh Sheet Data">🔄</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEW CONTAINER -->
+  <main class="main-content">
+
+    <!-- 1. INTRO / TOURNAMENT VIDEO PAGE -->
+    <section id="tab-intro" class="tab-pane active">
+      <div class="intro-card">
+        <div class="intro-header">
+          <span class="badge-tag">Season 2026</span>
+          <h2>Welcome to MMN Golden Boys Champions League</h2>
+          <p>Watch the official tournament promo before heading into the live player bidding arena.</p>
+        </div>
+
+        <div class="video-wrapper">
+          <!-- Replace src with your YouTube or MP4 video URL -->
+          <iframe 
+            id="tournamentVideo"
+            src="https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0" 
+            title="Tournament Video" 
+            frameborder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen>
+          </iframe>
+        </div>
+
+        <div class="intro-actions">
+          <button class="btn-primary-large" onclick="showTab('arena')">Enter Auction Arena ⚡</button>
+          <button class="btn-secondary-large" onclick="showTab('teams')">View Franchises 🏏</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. AUCTION ARENA VIEW -->
+    <section id="tab-arena" class="tab-pane">
+      <div class="arena-deck">
+        
+        <!-- Left: Photo & Player Number -->
+        <div class="arena-left">
+          <div class="photo-box">
+            <span id="stageBadge" class="card-status-badge">PENDING</span>
+            <img id="stagePhoto" src="https://placehold.co/400x500/0a1128/38bdf8?text=Player+Photo" alt="Player Photo" />
+          </div>
+          <p id="stagePlayerID" class="player-id-text">ID: --</p>
+          <span id="stageCategory" class="player-category-text">Category: Regular</span>
+        </div>
+
+        <!-- Right: Bio Details & Bidding Deck -->
+        <div class="arena-right">
+          <div class="player-headline">
+            <div>
+              <h2 id="stageName">Select a Player to Auction</h2>
+              <span id="stageRoleBadge" class="pill-role">Role</span>
+            </div>
+            <div class="price-stack">
+              <span class="label-muted">Base Price</span>
+              <p id="stageBasePrice" class="accent-price">₹0</p>
+            </div>
+          </div>
+
+          <div class="details-grid">
+            <div class="detail-tile">
+              <span class="tile-label">Mobile</span>
+              <span id="stageMobile" class="tile-value">--</span>
+            </div>
+            <div class="detail-tile">
+              <span class="tile-label">Area / Locality</span>
+              <span id="stageArea" class="tile-value">--</span>
+            </div>
+            <div class="detail-tile">
+              <span class="tile-label">Batting Style</span>
+              <span id="stageBatting" class="tile-value">--</span>
+            </div>
+            <div class="detail-tile">
+              <span class="tile-label">Bowling Style</span>
+              <span id="stageBowling" class="tile-value">--</span>
+            </div>
+            <div class="detail-tile">
+              <span class="tile-label">Age</span>
+              <span id="stageAge" class="tile-value">--</span>
+            </div>
+          </div>
+
+          <!-- Bidding Action Bar -->
+          <div class="hammer-box">
+            <div class="hammer-inputs">
+              <div class="input-group">
+                <label>Purchased By Team</label>
+                <select id="stageTeamSelect" onchange="updateSelectedTeamInfo()">
+                  <option value="">-- Choose Purchasing Team --</option>
+                </select>
+                <span id="stageOwnerLabel" class="field-hint">Owner: --</span>
+              </div>
+              <div class="input-group">
+                <label>Final Sold Price (₹)</label>
+                <input type="number" id="stageSoldPrice" placeholder="Hammer amount" />
+              </div>
+            </div>
+
+            <div class="hammer-btns">
+              <button class="btn-unsold" onclick="recordAuction('UNSOLD')">Mark UNSOLD</button>
+              <button class="btn-sold" onclick="recordAuction('SOLD')">🔨 SOLD</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Carousel Queue -->
+      <div class="queue-section">
+        <div class="queue-header">
+          <h3>Pending Auction Queue</h3>
+          <button class="btn-small-orange" onclick="filterQueue('RE_AUCTION')">🔁 Re-Auction Unsold</button>
+        </div>
+        <div id="arenaQueueList" class="horizontal-scroll-row"></div>
+      </div>
+    </section>
+
+    <!-- 3. TEAMS SQUADS PAGE -->
+    <section id="tab-teams" class="tab-pane">
+      <!-- Quick Top Franchise Switcher Chips[cite: 12] -->
+      <div id="teamQuickTabs" class="team-quick-bar"></div>
+      <div class="action-bar-right">
+        <button class="btn-action" onclick="openModal('modalAddTeam')">+ Add Team</button>
+      </div>
+      <!-- Team Card Grid matching screenshot 2[cite: 12] -->
+      <div id="teamsCardGrid" class="teams-grid"></div>
+    </section>
+
+    <!-- 4. UPCOMING PLAYERS PAGE -->
+    <section id="tab-upcoming" class="tab-pane">
+      <div class="list-filter-bar">
+        <input type="text" id="upcomingSearch" class="search-field" placeholder="Search by name..." onkeyup="filterPlayerGrid('upcoming')" />
+        <span id="upcomingTotalCount" class="count-badge">Total : 0</span>
+        <button class="btn-action ml-auto" onclick="openModal('modalAddPlayer')">+ Add Player</button>
+      </div>
+      <div id="upcomingGrid" class="players-cards-grid"></div>
+    </section>
+
+    <!-- 5. SOLD PLAYERS PAGE[cite: 11] -->
+    <section id="tab-sold" class="tab-pane">
+      <div class="list-filter-bar">
+        <input type="text" id="soldSearch" class="search-field" placeholder="Search by name..." onkeyup="filterPlayerGrid('sold')" />
+        <span id="soldTotalCount" class="count-badge">Total : 0</span>
+      </div>
+      <div id="soldGrid" class="players-cards-grid"></div>
+    </section>
+
+    <!-- 6. UNSOLD PLAYERS PAGE -->
+    <section id="tab-unsold" class="tab-pane">
+      <div class="list-filter-bar">
+        <input type="text" id="unsoldSearch" class="search-field" placeholder="Search by name..." onkeyup="filterPlayerGrid('unsold')" />
+        <span id="unsoldTotalCount" class="count-badge">Total : 0</span>
+      </div>
+      <div id="unsoldGrid" class="players-cards-grid"></div>
+    </section>
+
+    <!-- 7. UPDATES / ACTIVITY LOG PAGE[cite: 13] -->
+    <section id="tab-updates" class="tab-pane">
+      <div class="updates-container">
+        <div class="updates-header">
+          <h3>Tournament Activity Feed</h3>
+          <span class="live-pill">Live Synced</span>
+        </div>
+        <div id="updatesTimeline" class="updates-list"></div>
+      </div>
+    </section>
+
+    <!-- 8. EXPORTS & REPORTS -->
+    <section id="tab-exports" class="tab-pane">
+      <div class="reports-deck">
+        <div class="report-box">
+          <h4>Download Official Excel Summary</h4>
+          <p>Export full rosters with squad price points, sold values, and owner balances.</p>
+          <button class="btn-export-excel" onclick="exportToExcel()">Download .XLSX</button>
+        </div>
+        <div class="report-box">
+          <h4>Download Printable PDF Report</h4>
+          <p>Generate styled printable team squad tables for the organizers.</p>
+          <button class="btn-export-pdf" onclick="exportToPDF()">Download PDF</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- STICKY BOTTOM TEAM PURSE BAR -->
+  <aside class="sticky-footer-bar">
+    <span class="bar-title">TEAM PURSES:</span>
+    <div id="stickyPurseBar" class="purse-chips-row"></div>
+  </aside>
+
+  <!-- MODAL: ADD PLAYER -->
+  <div id="modalAddPlayer" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Add New Player</h3>
+        <button class="close-x" onclick="closeModal('modalAddPlayer')">&times;</button>
+      </div>
+      <form id="formAddPlayer" onsubmit="submitNewPlayer(event)">
+        <div class="form-row">
+          <div class="form-col">
+            <label>Player ID *</label>
+            <input type="text" id="newPlayerID" required placeholder="e.g. 2" />
+          </div>
+          <div class="form-col">
+            <label>Player Name *</label>
+            <input type="text" id="newPlayerName" required placeholder="Full Name" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-col">
+            <label>Mobile Number *</label>
+            <input type="tel" id="newPlayerMobile" required placeholder="10-digit mobile" />
+          </div>
+          <div class="form-col">
+            <label>Age</label>
+            <input type="number" id="newPlayerAge" placeholder="e.g. 25" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-col">
+            <label>Area / Locality</label>
+            <input type="text" id="newPlayerArea" placeholder="e.g. Gulmohar Nagar" />
+          </div>
+          <div class="form-col">
+            <label>Base Price (₹) *</label>
+            <input type="number" id="newPlayerBasePrice" required placeholder="e.g. 2000" />
+          </div>
+        </div>
+
+        <div class="form-row-3">
+          <div class="form-col">
+            <label>Role</label>
+            <select id="newPlayerRole">
+              <option value="Batsman">Batsman</option>
+              <option value="Bowler">Bowler</option>
+              <option value="All-Rounder">All-Rounder</option>
+              <option value="Wicket Keeper">Wicket Keeper</option>
+            </select>
+          </div>
+          <div class="form-col">
+            <label>Batting Style</label>
+            <select id="newPlayerBatting">
+              <option value="Right Hand">Right Hand</option>
+              <option value="Left Hand">Left Hand</option>
+            </select>
+          </div>
+          <div class="form-col">
+            <label>Bowling Style</label>
+            <input type="text" id="newPlayerBowling" placeholder="RH Medium Fast" />
+          </div>
+        </div>
+
+        <!-- Photograph selection -->
+        <div class="form-file-box">
+          <label>Select Player Photograph (Auto-saved to Drive)</label>
+          <div class="file-preview-wrap">
+            <input type="file" id="newPlayerPhotoFile" accept="image/*" onchange="previewPlayerImage(this)" />
+            <img id="newPlayerPhotoPreview" class="photo-preview hidden" alt="Preview" />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" onclick="closeModal('modalAddPlayer')">Cancel</button>
+          <button type="submit" id="btnSavePlayer" class="btn-submit">Save Player</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD TEAM -->
+  <div id="modalAddTeam" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Add New Team</h3>
+        <button class="close-x" onclick="closeModal('modalAddTeam')">&times;</button>
+      </div>
+      <form id="formAddTeam" onsubmit="submitNewTeam(event)">
+        <div class="form-group">
+          <label>Team ID *</label>
+          <input type="text" id="newTeamID" required placeholder="e.g. 2" />
+        </div>
+        <div class="form-group">
+          <label>Team Name *</label>
+          <input type="text" id="newTeamName" required placeholder="e.g. Lohana Titans" />
+        </div>
+        <div class="form-group">
+          <label>Owner / Captain Name *</label>
+          <input type="text" id="newTeamOwner" required placeholder="Full Name" />
+        </div>
+        <div class="form-row">
+          <div class="form-col">
+            <label>Logo (Emoji / Symbol)</label>
+            <input type="text" id="newTeamLogo" placeholder="🦁" />
+          </div>
+          <div class="form-col">
+            <label>Total Purse (₹) *</label>
+            <input type="number" id="newTeamPurse" required value="100000" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" onclick="closeModal('modalAddTeam')">Cancel</button>
+          <button type="submit" id="btnSaveTeam" class="btn-submit">Save Team</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Application Logic Script -->
+  <script src="app.js"></script>
+</body>
+</html>
