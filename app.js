@@ -189,7 +189,7 @@ async function recordAuction(status) {
   }
 }
 
-// 7. RENDER SCREENSHOT 1: SOLD / UNSOLD / UPCOMING PLAYERS[cite: 11]
+// 7. RENDER PLAYER CARDS GRID (SOLD / UNSOLD / UPCOMING)
 function renderPlayerCardsGrid(type) {
   let targetGrid = document.getElementById(`${type}Grid`);
   let totalBadge = document.getElementById(`${type}TotalCount`);
@@ -224,7 +224,7 @@ function renderPlayerCardsGrid(type) {
     `;
     card.onclick = () => {
       loadPlayerToStage(p.PlayerID);
-      showTab('arena');
+      navigateTab('arena');
     };
     targetGrid.appendChild(card);
   });
@@ -239,7 +239,7 @@ function filterPlayerGrid(type) {
   });
 }
 
-// 8. RENDER SCREENSHOT 2: TEAMS LEDGERS[cite: 12]
+// 8. RENDER TEAMS LEDGERS
 function renderTeamsLedgers() {
   const grid = document.getElementById('teamsCardGrid');
   const quickTabs = document.getElementById('teamQuickTabs');
@@ -249,7 +249,6 @@ function renderTeamsLedgers() {
   quickTabs.innerHTML = '';
 
   state.teams.forEach(t => {
-    // Quick franchise button at top[cite: 12]
     const chip = document.createElement('button');
     chip.className = 'team-chip';
     chip.innerText = t.TeamName.substring(0, 6);
@@ -270,7 +269,7 @@ function renderTeamsLedgers() {
       <div class="team-metrics-row">
         <div class="metric-item">
           <span class="val blue">${(t.TotalPurse / 100000).toFixed(2)} LAC</span>
-          <span class="lbl">TOTAL PURSE</span>
+          <span class="lbl">PURSE</span>
         </div>
         <div class="metric-item">
           <span class="val pink">${(used / 100000).toFixed(2)} LAC</span>
@@ -299,7 +298,7 @@ function renderTeamsLedgers() {
   });
 }
 
-// 9. RENDER SCREENSHOT 3: UPDATES TIMELINE[cite: 13]
+// 9. RENDER UPDATES TIMELINE
 function renderUpdatesFeed() {
   const feed = document.getElementById('updatesTimeline');
   if (!feed) return;
@@ -475,17 +474,118 @@ async function submitNewTeam(e) {
   }
 }
 
-// 14. TAB SWITCHER & THEME TOGGLE
-function showTab(tabId) {
-  document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+// SIDEBAR CONTROL WITH AUTO-HIDE & UNHIDE LOGIC
+let sidebarTimer = null;
 
+function toggleSidebar(open) {
+  const sidebar = document.getElementById('appSidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (!sidebar) return;
+
+  if (sidebarTimer) {
+    clearTimeout(sidebarTimer);
+    sidebarTimer = null;
+  }
+
+  if (open) {
+    sidebar.classList.add('open');
+    if (overlay) overlay.classList.add('active');
+  } else {
+    sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+  }
+}
+
+// SETUP AUTO-HIDE AND UNHIDE LISTENERS
+function setupSidebarAutoHide() {
+  const sidebar = document.getElementById('appSidebar');
+  const edgeDetector = document.getElementById('sidebarEdgeDetector');
+
+  if (!sidebar) return;
+
+  // 1. Desktop: Hover left edge to unhide
+  if (edgeDetector) {
+    edgeDetector.addEventListener('mouseenter', () => {
+      toggleSidebar(true);
+    });
+  }
+
+  // 2. Desktop: Mouse leaves sidebar -> auto-hide with 400ms buffer
+  sidebar.addEventListener('mouseleave', () => {
+    // Only auto-hide on desktop screens
+    if (window.innerWidth >= 768) {
+      sidebarTimer = setTimeout(() => {
+        toggleSidebar(false);
+      }, 350);
+    }
+  });
+
+  sidebar.addEventListener('mouseenter', () => {
+    if (sidebarTimer) {
+      clearTimeout(sidebarTimer);
+      sidebarTimer = null;
+    }
+  });
+
+  // 3. Mobile Touch Gestures: Swipe from edge to open, swipe left to close
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  window.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  window.addEventListener('touchend', (e) => {
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+
+    // Ensure horizontal gesture intent (not vertical scroll)
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+      // Swiped right from left boundary (< 35px) -> Open sidebar
+      if (diffX > 0 && touchStartX < 35) {
+        toggleSidebar(true);
+      }
+      // Swiped left while sidebar is open -> Close sidebar
+      else if (diffX < 0 && sidebar.classList.contains('open')) {
+        toggleSidebar(false);
+      }
+    }
+  }, { passive: true });
+}
+
+function navigateTab(tabId) {
+  // Hide all panes
+  document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.side-nav-item').forEach(btn => btn.classList.remove('active'));
+
+  // Show active pane
   const activePane = document.getElementById(`tab-${tabId}`);
   if (activePane) activePane.classList.add('active');
 
-  // Highlight matching navigation button
-  const matchingBtn = Array.from(document.querySelectorAll('.nav-btn')).find(b => b.getAttribute('onclick')?.includes(tabId));
+  // Highlight sidebar item
+  const matchingBtn = Array.from(document.querySelectorAll('.side-nav-item')).find(b => b.getAttribute('onclick')?.includes(tabId));
   if (matchingBtn) matchingBtn.classList.add('active');
+
+  // Update header title
+  const titles = {
+    intro: 'Tournament Intro',
+    arena: 'Auction Arena',
+    teams: 'Teams & Squads',
+    upcoming: 'Upcoming Players',
+    sold: 'Sold Players',
+    unsold: 'Unsold Players',
+    updates: 'Live Updates',
+    exports: 'Reports & Export'
+  };
+  const titleEl = document.getElementById('pageHeaderTitle');
+  if (titleEl) titleEl.innerText = titles[tabId] || 'GBCL Auction';
+
+  // Close sidebar on mobile after tapping
+  toggleSidebar(false);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function toggleTheme() {
@@ -513,9 +613,7 @@ function populateTeamDropdowns() {
 
 function setSyncStatus(type, msg) {
   const dot = document.getElementById('syncDot');
-  const txt = document.getElementById('syncText');
   if (dot) dot.className = `status-dot ${type}`;
-  if (txt) txt.innerText = msg;
 }
 
 // 15. EXPORT UTILITIES
@@ -550,7 +648,9 @@ function exportToPDF() {
   doc.save('GBCL_Auction_Report.pdf');
 }
 
-// 16. RUN ON START
+// Call inside window.onload
+const originalInit = window.onload;
 window.onload = () => {
-  fetchInitialData();
+  if (typeof originalInit === 'function') originalInit();
+  setupSidebarAutoHide();
 };

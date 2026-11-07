@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>GBCL Auction Day Manager</title>
   
   <!-- Custom Stylesheet -->
@@ -15,34 +15,90 @@
 </head>
 <body>
 
-  <!-- TOP HEADER -->
+  <!-- MOBILE BACKDROP OVERLAY -->
+  <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+
+<!-- INVISIBLE EDGE DETECTOR STRIP FOR DESKTOP AUTO-UNHIDE -->
+  <div id="sidebarEdgeDetector" class="sidebar-edge-detector"></div>
+
+  <!-- MOBILE BACKDROP OVERLAY -->
+  <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+
+  <!-- LEFT SLIDE-OUT SIDEBAR -->
+  <aside id="appSidebar" class="app-sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <div class="app-logo">G</div>
+        <div>
+          <h2 class="sidebar-title">GBCL 2026</h2>
+          <p class="sidebar-subtitle">Auction Manager</p>
+        </div>
+      </div>
+      <button class="sidebar-close-btn" onclick="toggleSidebar(false)">&times;</button>
+    </div>
+
+    <!-- SIDEBAR NAVIGATION MENU -->
+    <nav class="sidebar-nav">
+      <button class="side-nav-item active" onclick="navigateTab('intro')">
+        <span class="nav-icon">🎬</span>
+        <span>Tournament Intro</span>
+      </button>
+      <button class="side-nav-item" onclick="navigateTab('arena')">
+        <span class="nav-icon">⚡</span>
+        <span>Auction Arena</span>
+      </button>
+      <button class="side-nav-item" onclick="navigateTab('teams')">
+        <span class="nav-icon">🏏</span>
+        <span>Teams & Squads</span>
+      </button>
+      <button class="side-nav-item" onclick="navigateTab('upcoming')">
+        <span class="nav-icon">⏳</span>
+        <span>Upcoming Players</span>
+      </button>
+      <button class="side-nav-item highlight-sold" onclick="navigateTab('sold')">
+        <span class="nav-icon">🏷️</span>
+        <span>Sold Players</span>
+      </button>
+      <button class="side-nav-item" onclick="navigateTab('unsold')">
+        <span class="nav-icon">🚫</span>
+        <span>Unsold Players</span>
+      </button>
+      <button class="side-nav-item highlight-orange" onclick="navigateTab('updates')">
+        <span class="nav-icon">📢</span>
+        <span>Live Updates</span>
+      </button>
+      <button class="side-nav-item" onclick="navigateTab('exports')">
+        <span class="nav-icon">📊</span>
+        <span>Reports & Export</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="btn-sidebar-action" onclick="openModal('modalAddPlayer'); toggleSidebar(false);">+ Add Player</button>
+      <button class="btn-sidebar-action secondary" onclick="openModal('modalAddTeam'); toggleSidebar(false);">+ Add Team</button>
+    </div>
+  </aside>
+
+  <!-- TOP HEADER (MOBILE OPTIMIZED) -->
   <header class="app-header">
     <div class="header-left">
-      <div class="app-logo">G</div>
-      <div>
-        <h1 class="app-title">GBCL AUCTION DAY MANAGER</h1>
+      <!-- HAMBURGER TRIGGER BUTTON -->
+      <button class="hamburger-btn" onclick="toggleSidebar(true)" aria-label="Open Navigation Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div class="header-brand">
+        <h1 class="app-title" id="pageHeaderTitle">Tournament Intro</h1>
         <p class="app-subtitle">MMN Golden Boys Champions League</p>
       </div>
     </div>
-
-    <!-- MAIN PILL NAVIGATION -->
-    <nav class="nav-pills">
-      <button class="nav-btn active" onclick="showTab('intro')">Intro</button>
-      <button class="nav-btn" onclick="showTab('arena')">Auction Arena</button>
-      <button class="nav-btn" onclick="showTab('teams')">Teams</button>
-      <button class="nav-btn" onclick="showTab('upcoming')">Upcoming Players</button>
-      <button class="nav-btn highlight-sold" onclick="showTab('sold')">Sold Players</button>
-      <button class="nav-btn" onclick="showTab('unsold')">Unsold Players</button>
-      <button class="nav-btn highlight-orange" onclick="showTab('updates')">Updates</button>
-      <button class="nav-btn" onclick="showTab('exports')">Reports</button>
-    </nav>
 
     <!-- HEADER CONTROLS (Theme & Sync) -->
     <div class="header-right">
       <button id="themeToggleBtn" class="theme-toggle" onclick="toggleTheme()" title="Switch Light/Dark Theme">🌙</button>
       <div class="sync-status">
         <span id="syncDot" class="status-dot"></span>
-        <span id="syncText">Connecting...</span>
         <button class="icon-refresh" onclick="fetchInitialData()" title="Refresh Sheet Data">🔄</button>
       </div>
     </div>
@@ -56,7 +112,7 @@
       <div class="intro-card">
         <div class="intro-header">
           <span class="badge-tag">Season 2026</span>
-          <h2>Welcome to MMN Golden Boys Champions League</h2>
+          <h2>Welcome to Golden Boys Auction League</h2>
           <p>Watch the official tournament promo before heading into the live player bidding arena.</p>
         </div>
 
@@ -72,8 +128,8 @@
         </div>
 
         <div class="intro-actions">
-          <button class="btn-primary-large" onclick="showTab('arena')">Enter Auction Arena ⚡</button>
-          <button class="btn-secondary-large" onclick="showTab('teams')">View Franchises 🏏</button>
+          <button class="btn-primary-large" onclick="navigateTab('arena')">Enter Auction Arena ⚡</button>
+          <button class="btn-secondary-large" onclick="navigateTab('teams')">View Franchises 🏏</button>
         </div>
       </div>
     </section>
@@ -82,17 +138,19 @@
     <section id="tab-arena" class="tab-pane">
       <div class="arena-deck">
         
-        <!-- Left: Photo & Player Number -->
+        <!-- Left / Top: Photo & Player Number -->
         <div class="arena-left">
           <div class="photo-box">
             <span id="stageBadge" class="card-status-badge">PENDING</span>
             <img id="stagePhoto" src="https://placehold.co/400x500/0a1128/38bdf8?text=Player+Photo" alt="Player Photo" />
           </div>
-          <p id="stagePlayerID" class="player-id-text">ID: --</p>
-          <span id="stageCategory" class="player-category-text">Category: Regular</span>
+          <div class="player-meta-row">
+            <p id="stagePlayerID" class="player-id-text">ID: --</p>
+            <span id="stageCategory" class="player-category-text">Category: Regular</span>
+          </div>
         </div>
 
-        <!-- Right: Bio Details & Bidding Deck -->
+        <!-- Right / Bottom: Bio Details & Bidding Deck -->
         <div class="arena-right">
           <div class="player-headline">
             <div>
@@ -164,12 +222,10 @@
 
     <!-- 3. TEAMS SQUADS PAGE -->
     <section id="tab-teams" class="tab-pane">
-      <!-- Quick Top Franchise Switcher Chips[cite: 12] -->
       <div id="teamQuickTabs" class="team-quick-bar"></div>
       <div class="action-bar-right">
         <button class="btn-action" onclick="openModal('modalAddTeam')">+ Add Team</button>
       </div>
-      <!-- Team Card Grid matching screenshot 2[cite: 12] -->
       <div id="teamsCardGrid" class="teams-grid"></div>
     </section>
 
@@ -178,12 +234,12 @@
       <div class="list-filter-bar">
         <input type="text" id="upcomingSearch" class="search-field" placeholder="Search by name..." onkeyup="filterPlayerGrid('upcoming')" />
         <span id="upcomingTotalCount" class="count-badge">Total : 0</span>
-        <button class="btn-action ml-auto" onclick="openModal('modalAddPlayer')">+ Add Player</button>
+        <button class="btn-action ml-auto" onclick="openModal('modalAddPlayer')">+ Add</button>
       </div>
       <div id="upcomingGrid" class="players-cards-grid"></div>
     </section>
 
-    <!-- 5. SOLD PLAYERS PAGE[cite: 11] -->
+    <!-- 5. SOLD PLAYERS PAGE -->
     <section id="tab-sold" class="tab-pane">
       <div class="list-filter-bar">
         <input type="text" id="soldSearch" class="search-field" placeholder="Search by name..." onkeyup="filterPlayerGrid('sold')" />
@@ -201,7 +257,7 @@
       <div id="unsoldGrid" class="players-cards-grid"></div>
     </section>
 
-    <!-- 7. UPDATES / ACTIVITY LOG PAGE[cite: 13] -->
+    <!-- 7. UPDATES / ACTIVITY LOG PAGE -->
     <section id="tab-updates" class="tab-pane">
       <div class="updates-container">
         <div class="updates-header">
@@ -222,7 +278,7 @@
         </div>
         <div class="report-box">
           <h4>Download Printable PDF Report</h4>
-          <p>Generate styled printable team squad tables for the organizers.</p>
+          <p>Generate styled printable team squad tables for the tournament organizers.</p>
           <button class="btn-export-pdf" onclick="exportToPDF()">Download PDF</button>
         </div>
       </div>
@@ -232,7 +288,7 @@
 
   <!-- STICKY BOTTOM TEAM PURSE BAR -->
   <aside class="sticky-footer-bar">
-    <span class="bar-title">TEAM PURSES:</span>
+    <span class="bar-title">PURSES:</span>
     <div id="stickyPurseBar" class="purse-chips-row"></div>
   </aside>
 
@@ -296,11 +352,10 @@
           </div>
           <div class="form-col">
             <label>Bowling Style</label>
-            <input type="text" id="newPlayerBowling" placeholder="RH Medium Fast" />
+            <input type="text" id="newPlayerBowling" placeholder="RH Fast" />
           </div>
         </div>
 
-        <!-- Photograph selection -->
         <div class="form-file-box">
           <label>Select Player Photograph (Auto-saved to Drive)</label>
           <div class="file-preview-wrap">
