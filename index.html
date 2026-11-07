@@ -60,17 +60,12 @@
           <p>Watch the official tournament promo before heading into the live player bidding arena.</p>
         </div>
 
-        <div class="video-wrapper">
-          <!-- Replace src with your YouTube or MP4 video URL -->
-          <iframe 
-            id="tournamentVideo"
-            src="https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0" 
-            title="Tournament Video" 
-            frameborder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowfullscreen>
-          </iframe>
-        </div>
+    		<div class="video-wrapper">
+    		  <video id="tournamentVideo" controls autoplay muted playsinline style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;">
+    			<source src="https://drive.google.com/file/d/1zFNHyBYB34uDvZjJkyOLK4GbqzVNaHwm/view?usp=drive_link" type="video/mp4" />
+    			Your browser does not support the video tag.
+    		  </video>
+    		</div>
 
         <div class="intro-actions">
           <button class="btn-primary-large" onclick="showTab('arena')">Enter Auction Arena ⚡</button>
