@@ -5,101 +5,93 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>GBCL Auction Day Manager</title>
   
-  <!-- Custom Stylesheet -->
+  <!-- Custom Crisp Stadium & Single-Row Header Stylesheet -->
   <link rel="stylesheet" href="style.css" />
 
   <!-- SheetJS & jsPDF CDN for Exports -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <!-- Canvas Confetti for SOLD Celebrations -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
 
-  <!-- MOBILE BACKDROP OVERLAY -->
-  <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+  <!-- CRISP UNBLURRED FULL-SCREEN CRICKET STADIUM BACKGROUND -->
+  <div class="stadium-bg-layer"></div>
+  <div class="stadium-overlay-layer"></div>
 
-<!-- INVISIBLE EDGE DETECTOR STRIP FOR DESKTOP AUTO-UNHIDE -->
-  <div id="sidebarEdgeDetector" class="sidebar-edge-detector"></div>
+  <!-- ANIMATED HAMMER CELEBRATION OVERLAY (SOLD / UNSOLD) -->
+  <div id="hammerOverlay" class="hammer-overlay hidden">
+    <div id="hammerCard" class="hammer-celebration-card">
+      <div id="hammerIcon" class="hammer-big-icon">🔨</div>
+      <div id="hammerStamp" class="hammer-stamp">SOLD!</div>
+      <h2 id="hammerPlayerName" class="hammer-player">Player Name</h2>
+      <p id="hammerSubText" class="hammer-sub">to Franchise Name for ₹0</p>
+    </div>
+  </div>
 
-  <!-- MOBILE BACKDROP OVERLAY -->
-  <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toastContainer" class="toast-container"></div>
 
-  <!-- LEFT SLIDE-OUT SIDEBAR -->
-  <aside id="appSidebar" class="app-sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-brand">
-        <div class="app-logo">G</div>
-        <div>
-          <h2 class="sidebar-title">GBCL 2026</h2>
-          <p class="sidebar-subtitle">Auction Manager</p>
+  <!-- SINGLE-ROW FULL-WIDTH TOP HEADER & NAVIGATION -->
+  <header class="app-header">
+    <div class="header-single-row">
+      <!-- Left: Brand Identity -->
+      <div class="header-brand">
+        <div class="app-logo">🏏</div>
+        <div class="brand-text">
+          <h1 class="app-title">GBCL AUCTION</h1>
+          <p class="app-subtitle">MMN Golden Boys</p>
         </div>
       </div>
-      <button class="sidebar-close-btn" onclick="toggleSidebar(false)">&times;</button>
-    </div>
 
-    <!-- SIDEBAR NAVIGATION MENU -->
-    <nav class="sidebar-nav">
-      <button class="side-nav-item active" onclick="navigateTab('intro')">
-        <span class="nav-icon">🎬</span>
-        <span>Tournament Intro</span>
-      </button>
-      <button class="side-nav-item" onclick="navigateTab('arena')">
-        <span class="nav-icon">⚡</span>
-        <span>Auction Arena</span>
-      </button>
-      <button class="side-nav-item" onclick="navigateTab('teams')">
-        <span class="nav-icon">🏏</span>
-        <span>Teams & Squads</span>
-      </button>
-      <button class="side-nav-item" onclick="navigateTab('upcoming')">
-        <span class="nav-icon">⏳</span>
-        <span>Upcoming Players</span>
-      </button>
-      <button class="side-nav-item highlight-sold" onclick="navigateTab('sold')">
-        <span class="nav-icon">🏷️</span>
-        <span>Sold Players</span>
-      </button>
-      <button class="side-nav-item" onclick="navigateTab('unsold')">
-        <span class="nav-icon">🚫</span>
-        <span>Unsold Players</span>
-      </button>
-      <button class="side-nav-item highlight-orange" onclick="navigateTab('updates')">
-        <span class="nav-icon">📢</span>
-        <span>Live Updates</span>
-      </button>
-      <button class="side-nav-item" onclick="navigateTab('exports')">
-        <span class="nav-icon">📊</span>
-        <span>Reports & Export</span>
-      </button>
-    </nav>
+      <!-- Center: Single-Row Navigation Pills -->
+      <nav class="top-nav-menu" aria-label="Main Navigation">
+        <button class="top-nav-item active" data-tab="intro" onclick="navigateTab('intro')">
+          <span class="nav-icon">🎬</span>
+          <span>Intro</span>
+        </button>
+        <button class="top-nav-item" data-tab="arena" onclick="navigateTab('arena')">
+          <span class="nav-icon">⚡</span>
+          <span>Arena</span>
+        </button>
+        <button class="top-nav-item" data-tab="teams" onclick="navigateTab('teams')">
+          <span class="nav-icon">🏆</span>
+          <span>Teams</span>
+        </button>
+        <button class="top-nav-item" data-tab="upcoming" onclick="navigateTab('upcoming')">
+          <span class="nav-icon">⏳</span>
+          <span>Upcoming</span>
+        </button>
+        <button class="top-nav-item highlight-sold" data-tab="sold" onclick="navigateTab('sold')">
+          <span class="nav-icon">🏷️</span>
+          <span>Sold</span>
+        </button>
+        <button class="top-nav-item highlight-orange" data-tab="unsold" onclick="navigateTab('unsold')">
+          <span class="nav-icon">🚫</span>
+          <span>Unsold</span>
+        </button>
+        <button class="top-nav-item" data-tab="updates" onclick="navigateTab('updates')">
+          <span class="nav-icon">📢</span>
+          <span>Updates</span>
+        </button>
+        <button class="top-nav-item" data-tab="exports" onclick="navigateTab('exports')">
+          <span class="nav-icon">📊</span>
+          <span>Reports</span>
+        </button>
+      </nav>
 
-    <div class="sidebar-footer">
-      <button class="btn-sidebar-action" onclick="openModal('modalAddPlayer'); toggleSidebar(false);">+ Add Player</button>
-      <button class="btn-sidebar-action secondary" onclick="openModal('modalAddTeam'); toggleSidebar(false);">+ Add Team</button>
-    </div>
-  </aside>
-
-  <!-- TOP HEADER (MOBILE OPTIMIZED) -->
-  <header class="app-header">
-    <div class="header-left">
-      <!-- HAMBURGER TRIGGER BUTTON -->
-      <button class="hamburger-btn" onclick="toggleSidebar(true)" aria-label="Open Navigation Menu">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-      <div class="header-brand">
-        <h1 class="app-title" id="pageHeaderTitle">Tournament Intro</h1>
-        <p class="app-subtitle">MMN Golden Boys Champions League</p>
-      </div>
-    </div>
-
-    <!-- HEADER CONTROLS (Theme & Sync) -->
-    <div class="header-right">
-      <button id="themeToggleBtn" class="theme-toggle" onclick="toggleTheme()" title="Switch Light/Dark Theme">🌙</button>
-      <div class="sync-status">
-        <span id="syncDot" class="status-dot"></span>
-        <button class="icon-refresh" onclick="fetchInitialData()" title="Refresh Sheet Data">🔄</button>
+      <!-- Right: Action Buttons, Theme & Live Status -->
+      <div class="header-actions">
+        <button class="btn-header-add" onclick="openAddPlayerModal()">+ Player</button>
+        <button class="btn-header-add secondary" onclick="openAddTeamModal()">+ Team</button>
+        <button id="themeToggleBtn" class="theme-toggle" onclick="toggleTheme()" title="Switch Light/Dark Theme">🌙</button>
+        <div class="sync-status">
+          <span id="syncDot" class="status-dot"></span>
+          <span id="syncLabel" class="sync-label">Live</span>
+          <button class="icon-refresh" onclick="fetchInitialData()" title="Refresh Sheet Data">🔄</button>
+        </div>
       </div>
     </div>
   </header>
@@ -110,9 +102,10 @@
     <!-- 1. INTRO / TOURNAMENT VIDEO PAGE -->
     <section id="tab-intro" class="tab-pane active">
       <div class="intro-card">
+        <div class="intro-glow"></div>
         <div class="intro-header">
-          <span class="badge-tag">Season 2026</span>
-          <h2>Welcome to Golden Boys Auction League</h2>
+          <span class="badge-tag">✨ Season 2026 Live</span>
+          <h2>Welcome to MMN Golden Boys Champions League</h2>
           <p>Watch the official tournament promo before heading into the live player bidding arena.</p>
         </div>
 
@@ -136,9 +129,9 @@
 
     <!-- 2. AUCTION ARENA VIEW -->
     <section id="tab-arena" class="tab-pane">
-      <div class="arena-deck">
-        
-        <!-- Left / Top: Photo & Player Number -->
+      <div id="hammerResultBanner" class="hammer-banner hidden"></div>
+
+      <div id="arenaDeckCard" class="arena-deck">
         <div class="arena-left">
           <div class="photo-box">
             <span id="stageBadge" class="card-status-badge">PENDING</span>
@@ -150,7 +143,6 @@
           </div>
         </div>
 
-        <!-- Right / Bottom: Bio Details & Bidding Deck -->
         <div class="arena-right">
           <div class="player-headline">
             <div>
@@ -164,29 +156,28 @@
           </div>
 
           <div class="details-grid">
-            <div class="detail-tile">
-              <span class="tile-label">Mobile</span>
+            <div class="detail-tile tile-blue">
+              <span class="tile-label">📱 Mobile</span>
               <span id="stageMobile" class="tile-value">--</span>
             </div>
-            <div class="detail-tile">
-              <span class="tile-label">Area / Locality</span>
+            <div class="detail-tile tile-purple">
+              <span class="tile-label">📍 Area / Locality</span>
               <span id="stageArea" class="tile-value">--</span>
             </div>
-            <div class="detail-tile">
-              <span class="tile-label">Batting Style</span>
+            <div class="detail-tile tile-cyan">
+              <span class="tile-label">🏏 Batting Style</span>
               <span id="stageBatting" class="tile-value">--</span>
             </div>
-            <div class="detail-tile">
-              <span class="tile-label">Bowling Style</span>
+            <div class="detail-tile tile-orange">
+              <span class="tile-label">🎯 Bowling Style</span>
               <span id="stageBowling" class="tile-value">--</span>
             </div>
-            <div class="detail-tile">
-              <span class="tile-label">Age</span>
+            <div class="detail-tile tile-pink">
+              <span class="tile-label">🎂 Age</span>
               <span id="stageAge" class="tile-value">--</span>
             </div>
           </div>
 
-          <!-- Bidding Action Bar -->
           <div class="hammer-box">
             <div class="hammer-inputs">
               <div class="input-group">
@@ -203,14 +194,13 @@
             </div>
 
             <div class="hammer-btns">
-              <button class="btn-unsold" onclick="recordAuction('UNSOLD')">Mark UNSOLD</button>
-              <button class="btn-sold" onclick="recordAuction('SOLD')">🔨 SOLD</button>
+              <button id="btnMarkUnsold" class="btn-unsold" onclick="recordAuction('UNSOLD')">🚫 Mark UNSOLD</button>
+              <button id="btnMarkSold" class="btn-sold" onclick="recordAuction('SOLD')">🔨 SOLD</button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Quick Carousel Queue -->
       <div class="queue-section">
         <div class="queue-header">
           <h3>Pending Auction Queue</h3>
@@ -224,7 +214,8 @@
     <section id="tab-teams" class="tab-pane">
       <div id="teamQuickTabs" class="team-quick-bar"></div>
       <div class="action-bar-right">
-        <button class="btn-action" onclick="openModal('modalAddTeam')">+ Add Team</button>
+        <button class="btn-action secondary" onclick="exportTeamsPDF()">📄 Export All Teams PDF</button>
+        <button class="btn-action" onclick="openAddTeamModal()">+ Add Team</button>
       </div>
       <div id="teamsCardGrid" class="teams-grid"></div>
     </section>
@@ -232,9 +223,9 @@
     <!-- 4. UPCOMING PLAYERS PAGE -->
     <section id="tab-upcoming" class="tab-pane">
       <div class="list-filter-bar">
-        <input type="text" id="upcomingSearch" class="search-field" placeholder="Search by name..." onkeyup="filterPlayerGrid('upcoming')" />
-        <span id="upcomingTotalCount" class="count-badge">Total : 0</span>
-        <button class="btn-action ml-auto" onclick="openModal('modalAddPlayer')">+ Add</button>
+        <input type="text" id="upcomingSearch" class="search-field" placeholder="Search upcoming players..." onkeyup="filterPlayerGrid('upcoming')" />
+        <span id="upcomingTotalCount" class="count-badge badge-blue">Total : 0</span>
+        <button class="btn-action ml-auto" onclick="openAddPlayerModal()">+ Add Player</button>
       </div>
       <div id="upcomingGrid" class="players-cards-grid"></div>
     </section>
@@ -242,8 +233,8 @@
     <!-- 5. SOLD PLAYERS PAGE -->
     <section id="tab-sold" class="tab-pane">
       <div class="list-filter-bar">
-        <input type="text" id="soldSearch" class="search-field" placeholder="Search by name..." onkeyup="filterPlayerGrid('sold')" />
-        <span id="soldTotalCount" class="count-badge">Total : 0</span>
+        <input type="text" id="soldSearch" class="search-field" placeholder="Search sold players..." onkeyup="filterPlayerGrid('sold')" />
+        <span id="soldTotalCount" class="count-badge badge-green">Total : 0</span>
       </div>
       <div id="soldGrid" class="players-cards-grid"></div>
     </section>
@@ -251,8 +242,8 @@
     <!-- 6. UNSOLD PLAYERS PAGE -->
     <section id="tab-unsold" class="tab-pane">
       <div class="list-filter-bar">
-        <input type="text" id="unsoldSearch" class="search-field" placeholder="Search by name..." onkeyup="filterPlayerGrid('unsold')" />
-        <span id="unsoldTotalCount" class="count-badge">Total : 0</span>
+        <input type="text" id="unsoldSearch" class="search-field" placeholder="Search unsold players..." onkeyup="filterPlayerGrid('unsold')" />
+        <span id="unsoldTotalCount" class="count-badge badge-orange">Total : 0</span>
       </div>
       <div id="unsoldGrid" class="players-cards-grid"></div>
     </section>
@@ -261,25 +252,83 @@
     <section id="tab-updates" class="tab-pane">
       <div class="updates-container">
         <div class="updates-header">
-          <h3>Tournament Activity Feed</h3>
-          <span class="live-pill">Live Synced</span>
+          <div>
+            <h3>Live Activity Log</h3>
+            <p class="subtitle-small">Real-time audit trail of sales, unsold hammers, new players, and teams</p>
+          </div>
+          <span class="live-pill">● Live Feed</span>
         </div>
         <div id="updatesTimeline" class="updates-list"></div>
       </div>
     </section>
 
-    <!-- 8. EXPORTS & REPORTS -->
+    <!-- 8. EXPORTS & REPORTS PAGE -->
     <section id="tab-exports" class="tab-pane">
+      <div class="stats-overview-grid">
+        <div class="stat-box box-blue">
+          <span class="stat-lbl">Total Registered</span>
+          <span id="repTotalPlayers" class="stat-val blue">0</span>
+        </div>
+        <div class="stat-box box-green">
+          <span class="stat-lbl">Players Sold</span>
+          <span id="repSoldPlayers" class="stat-val green">0</span>
+        </div>
+        <div class="stat-box box-orange">
+          <span class="stat-lbl">Players Unsold</span>
+          <span id="repUnsoldPlayers" class="stat-val orange">0</span>
+        </div>
+        <div class="stat-box box-purple">
+          <span class="stat-lbl">Total Purse Spent</span>
+          <span id="repTotalSpent" class="stat-val purple">₹0</span>
+        </div>
+      </div>
+
       <div class="reports-deck">
         <div class="report-box">
-          <h4>Download Official Excel Summary</h4>
-          <p>Export full rosters with squad price points, sold values, and owner balances.</p>
-          <button class="btn-export-excel" onclick="exportToExcel()">Download .XLSX</button>
+          <div class="report-icon">📇</div>
+          <h4>Pre-Auction Player Catalog PDF (3-Per-Row Cards)</h4>
+          <p>Printable 3-column grid featuring player photos, IDs, roles, and base prices to distribute before bidding starts.</p>
+          <button id="btnExportCatalogPDF" class="btn-export-catalog" onclick="exportPlayerCatalogPDF()">Download 3-Row Player Catalog PDF</button>
         </div>
+
         <div class="report-box">
-          <h4>Download Printable PDF Report</h4>
-          <p>Generate styled printable team squad tables for the tournament organizers.</p>
-          <button class="btn-export-pdf" onclick="exportToPDF()">Download PDF</button>
+          <div class="report-icon">🏆</div>
+          <h4>Team Squads & Balances PDF</h4>
+          <p>Export all franchises with their owners, purse breakdown, and full list of acquired players.</p>
+          <button class="btn-export-teams" onclick="exportTeamsPDF()">Download Teams Squads PDF</button>
+        </div>
+
+        <div class="report-box">
+          <div class="report-icon">📗</div>
+          <h4>Master Auction Excel (.XLSX)</h4>
+          <p>Complete spreadsheet export with all player details, status, winning teams, and final hammer prices.</p>
+          <button class="btn-export-excel" onclick="exportToExcel()">Download Master Excel</button>
+        </div>
+
+        <div class="report-box">
+          <div class="report-icon">📋</div>
+          <h4>Summary Ledger Table PDF</h4>
+          <p>Clean tabular PDF summary of all players and auction results for official record keeping.</p>
+          <button class="btn-export-pdf" onclick="exportToPDF()">Download Summary Table PDF</button>
+        </div>
+      </div>
+
+      <div class="report-table-card">
+        <h4>Franchise Purse & Squad Breakdown</h4>
+        <div class="table-responsive">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Team Name</th>
+                <th>Owner</th>
+                <th>Squad Size</th>
+                <th>Total Purse</th>
+                <th>Purse Used</th>
+                <th>Balance Left</th>
+              </tr>
+            </thead>
+            <tbody id="reportTeamsTableBody"></tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -372,7 +421,7 @@
     </div>
   </div>
 
-  <!-- MODAL: ADD TEAM -->
+  <!-- MODAL: ADD TEAM (WITH PLAYING OWNER OPTION) -->
   <div id="modalAddTeam" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
@@ -380,18 +429,22 @@
         <button class="close-x" onclick="closeModal('modalAddTeam')">&times;</button>
       </div>
       <form id="formAddTeam" onsubmit="submitNewTeam(event)">
-        <div class="form-group">
-          <label>Team ID *</label>
-          <input type="text" id="newTeamID" required placeholder="e.g. 2" />
+        <div class="form-row">
+          <div class="form-col">
+            <label>Team ID *</label>
+            <input type="text" id="newTeamID" required placeholder="e.g. 2" />
+          </div>
+          <div class="form-col">
+            <label>Team Name *</label>
+            <input type="text" id="newTeamName" required placeholder="e.g. Lohana Titans" />
+          </div>
         </div>
-        <div class="form-group">
-          <label>Team Name *</label>
-          <input type="text" id="newTeamName" required placeholder="e.g. Lohana Titans" />
-        </div>
+
         <div class="form-group">
           <label>Owner / Captain Name *</label>
           <input type="text" id="newTeamOwner" required placeholder="Full Name" />
         </div>
+
         <div class="form-row">
           <div class="form-col">
             <label>Logo (Emoji / Symbol)</label>
@@ -402,6 +455,63 @@
             <input type="number" id="newTeamPurse" required value="100000" />
           </div>
         </div>
+
+        <!-- PLAYING OWNER TOGGLE SECTION -->
+        <div class="playing-owner-box">
+          <label class="checkbox-label">
+            <input type="checkbox" id="isPlayingOwner" onchange="togglePlayingOwnerFields()" />
+            <span>🏏 Owner is also a Playing Player (Assign directly to team without bidding)</span>
+          </label>
+
+          <div id="playingOwnerFields" class="playing-owner-fields hidden">
+            <div class="form-row">
+              <div class="form-col">
+                <label>Owner Player ID *</label>
+                <input type="text" id="ownerPlayerID" placeholder="e.g. 101" />
+              </div>
+              <div class="form-col">
+                <label>Owner Mobile *</label>
+                <input type="tel" id="ownerMobile" placeholder="10-digit mobile" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-col">
+                <label>Owner Role</label>
+                <select id="ownerRole">
+                  <option value="All-Rounder">All-Rounder</option>
+                  <option value="Batsman">Batsman</option>
+                  <option value="Bowler">Bowler</option>
+                  <option value="Wicket Keeper">Wicket Keeper</option>
+                </select>
+              </div>
+              <div class="form-col">
+                <label>Retained / Deducted Price (₹)</label>
+                <input type="number" id="ownerPrice" value="0" placeholder="0 if free" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-col">
+                <label>Area / Locality</label>
+                <input type="text" id="ownerArea" placeholder="e.g. Nagpur" />
+              </div>
+              <div class="form-col">
+                <label>Age</label>
+                <input type="number" id="ownerAge" placeholder="e.g. 32" />
+              </div>
+            </div>
+
+            <div class="form-file-box" style="margin-bottom:0;">
+              <label>Owner Photograph (Optional - Auto-saved to Drive)</label>
+              <div class="file-preview-wrap">
+                <input type="file" id="ownerPhotoFile" accept="image/*" onchange="previewOwnerImage(this)" />
+                <img id="ownerPhotoPreview" class="photo-preview hidden" alt="Owner Preview" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="modal-footer">
           <button type="button" class="btn-cancel" onclick="closeModal('modalAddTeam')">Cancel</button>
           <button type="submit" id="btnSaveTeam" class="btn-submit">Save Team</button>
