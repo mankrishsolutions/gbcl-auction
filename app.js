@@ -269,10 +269,11 @@ function populateBucketDropdowns() {
     const prevVal = state.activeBucket;
     arenaSel.innerHTML = '<option value="">-- Select a Bucket to Start Auction --</option>';
     state.buckets.forEach(b => {
-      const count = state.players.filter(p => p.Role.toLowerCase() === b.toLowerCase()).length;
+      const availCount = state.players.filter(p => p.Role.toLowerCase() === b.toLowerCase() && p.Status === 'PENDING').length;
+      const totalCount = state.players.filter(p => p.Role.toLowerCase() === b.toLowerCase()).length;
       const opt = document.createElement('option');
       opt.value = b;
-      opt.innerText = `${b} (${count} Players)`;
+      opt.innerText = `${b} (${availCount} Available / ${totalCount} Total)`;
       arenaSel.appendChild(opt);
     });
     if (prevVal) arenaSel.value = prevVal;
@@ -294,10 +295,11 @@ function populateBucketDropdowns() {
   if (exportSel) {
     exportSel.innerHTML = `<option value="ALL">All Buckets Combined (${state.players.length} Players)</option>`;
     state.buckets.forEach(b => {
-      const count = state.players.filter(p => p.Role.toLowerCase() === b.toLowerCase()).length;
+      const availCount = state.players.filter(p => p.Role.toLowerCase() === b.toLowerCase() && p.Status === 'PENDING').length;
+      const totalCount = state.players.filter(p => p.Role.toLowerCase() === b.toLowerCase()).length;
       const opt = document.createElement('option');
       opt.value = b;
-      opt.innerText = `${b} (${count} Players)`;
+      opt.innerText = `${b} (${availCount} Available / ${totalCount} Total)`;
       exportSel.appendChild(opt);
     });
   }
@@ -345,17 +347,20 @@ function onArenaBucketChange(keepCurrentPlayer = false) {
   updateBucketStatsBadges(bucketPlayers);
   renderArenaBucketQueue();
 
-  // Load first pending player from this bucket (or keep active player if still in this bucket)
-  if (keepCurrentPlayer && state.activePlayer && state.activePlayer.Category.toLowerCase() === state.activeBucket.toLowerCase()) {
+  // Load ONLY available players (PENDING) from this bucket onto the stage; never show SOLD players in Arena
+  if (
+    keepCurrentPlayer &&
+    state.activePlayer &&
+    state.activePlayer.Role.toLowerCase() === state.activeBucket.toLowerCase() &&
+    state.activePlayer.Status === state.arenaQueueStatus
+  ) {
     loadPlayerToStage(state.activePlayer.PlayerID);
   } else {
-    const pendingInBucket = bucketPlayers.filter(p => p.Status === 'PENDING');
-    if (pendingInBucket.length > 0) {
-      loadPlayerToStage(pendingInBucket[0].PlayerID);
-    } else if (bucketPlayers.length > 0) {
-      loadPlayerToStage(bucketPlayers[0].PlayerID);
+    const availableInBucket = bucketPlayers.filter(p => p.Status === 'PENDING');
+    if (availableInBucket.length > 0) {
+      loadPlayerToStage(availableInBucket[0].PlayerID);
     } else {
-      clearStageCard();
+      clearStageCard('All Pending Players Completed in This Bucket!');
     }
   }
 }
@@ -377,6 +382,15 @@ function updateBucketStatsBadges(bucketPlayers) {
 function setArenaQueueFilter(status) {
   state.arenaQueueStatus = status;
   renderArenaBucketQueue();
+
+  const matching = state.players.filter(
+    p => p.Role.toLowerCase() === state.activeBucket.toLowerCase() && p.Status === status
+  );
+  if (matching.length > 0) {
+    loadPlayerToStage(matching[0].PlayerID);
+  } else {
+    clearStageCard(status === 'UNSOLD' ? 'No Unsold Players in This Bucket' : 'All Pending Players Completed in This Bucket!');
+  }
 }
 
 function renderArenaBucketQueue() {
@@ -407,19 +421,24 @@ function renderArenaBucketQueue() {
   });
 }
 
-function clearStageCard() {
+function clearStageCard(customMsg = 'No Available Players in This Bucket') {
   state.activePlayer = null;
-  document.getElementById('stagePhoto').src = 'https://placehold.co/400x500/0a1128/38bdf8?text=No+Players';
+  document.getElementById('stagePhoto').src = 'https://placehold.co/400x500/0a1128/38bdf8?text=Bucket+Complete';
   document.getElementById('stagePlayerID').innerText = 'ID: --';
-  document.getElementById('stageCategory').innerText = `Category: Regular`;
-  document.getElementById('stageName').innerText = 'No Players in This Bucket';
-  document.getElementById('stageRoleBadge').innerText = state.activeBucket;
+  document.getElementById('stageCategory').innerText = 'Category: --';
+  document.getElementById('stageName').innerText = customMsg;
+  document.getElementById('stageRoleBadge').innerText = state.activeBucket || 'Bucket';
   document.getElementById('stageBasePrice').innerText = '₹0';
   document.getElementById('stageMobile').innerText = '--';
   document.getElementById('stageAge').innerText = '--';
   document.getElementById('stageArea').innerText = '--';
   document.getElementById('stageBatting').innerText = '--';
   document.getElementById('stageBowling').innerText = '--';
+  const badge = document.getElementById('stageBadge');
+  if (badge) {
+    badge.innerText = 'DONE';
+    badge.className = 'card-status-badge';
+  }
 }
 
 // 9. STAGE CONTROLLER
@@ -522,9 +541,9 @@ async function recordAuction(status) {
   }
   showToast(logMessage, status === 'SOLD' ? 'sold' : 'unsold');
 
-  // Update bucket stats & advance to next pending player in the same bucket automatically
+  // Update bucket stats & immediately remove the SOLD/UNSOLD player from the Arena stage
   const bucketPlayers = state.players.filter(x => x.Role.toLowerCase() === state.activeBucket.toLowerCase());
-  state.arenaQueueStatus = 'PENDING';
+  populateBucketDropdowns();
   updateBucketStatsBadges(bucketPlayers);
   renderArenaBucketQueue();
   renderPurseBar();
@@ -534,11 +553,16 @@ async function recordAuction(status) {
   renderPlayerCardsGrid('unsold');
   renderReportsSummary();
 
-  const nextPending = bucketPlayers.find(x => x.Status === 'PENDING');
-  if (nextPending) {
-    loadPlayerToStage(nextPending.PlayerID);
+  // Advance to the next remaining player in the active queue (PENDING or UNSOLD re-auction), never keeping the just-sold/unsold player on stage
+  const nextAvailable = bucketPlayers.find(x => x.Status === state.arenaQueueStatus);
+  if (nextAvailable) {
+    loadPlayerToStage(nextAvailable.PlayerID);
   } else {
-    loadPlayerToStage(p.PlayerID);
+    clearStageCard(
+      state.arenaQueueStatus === 'UNSOLD'
+        ? 'All Re-Auction Players Completed in This Bucket!'
+        : 'All Pending Players Completed in This Bucket!'
+    );
   }
 
   try {
@@ -608,13 +632,20 @@ function renderPlayerCardsGrid(type) {
       </div>
     `;
     card.onclick = () => {
-      // Automatically switch Arena bucket to this player's bucket and load them
+      if (p.Status === 'SOLD') {
+        showToast(`${p.PlayerName} is already SOLD!`, 'info');
+        return;
+      }
+      // Switch Arena bucket and set queue mode to PENDING or UNSOLD (Re-Auction)
       const arenaSel = document.getElementById('arenaBucketSelect');
       if (arenaSel) {
         arenaSel.value = p.Role;
         state.activeBucket = p.Role;
+        state.arenaQueueStatus = p.Status === 'UNSOLD' ? 'UNSOLD' : 'PENDING';
         document.getElementById('arenaSelectBucketPrompt')?.classList.add('hidden');
         document.getElementById('arenaStageContainer')?.classList.remove('hidden');
+        const bucketPlayers = state.players.filter(x => x.Role.toLowerCase() === p.Role.toLowerCase());
+        updateBucketStatsBadges(bucketPlayers);
       }
       loadPlayerToStage(p.PlayerID);
       navigateTab('arena');
