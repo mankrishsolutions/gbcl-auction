@@ -399,11 +399,72 @@
 
   </main>
 
-  <!-- STICKY BOTTOM TEAM PURSE BAR -->
+  <!-- STICKY TEAM PURSE BAR (SITS ABOVE MOBILE NAV ON PHONE, BOTTOM ON DESKTOP) -->
   <aside class="sticky-footer-bar">
     <span class="bar-title">PURSES:</span>
     <div id="stickyPurseBar" class="purse-chips-row"></div>
   </aside>
+
+  <!-- DEDICATED MOBILE BOTTOM APP NAVIGATION BAR (VISIBLE ON MOBILE < 960px) -->
+  <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
+    <button class="mob-nav-btn active" data-tab="intro" onclick="navigateTab('intro')">
+      <span class="mob-icon">🎬</span>
+      <span class="mob-lbl">Intro</span>
+    </button>
+    <button class="mob-nav-btn" data-tab="arena" onclick="navigateTab('arena')">
+      <span class="mob-icon">⚡</span>
+      <span class="mob-lbl">Arena</span>
+    </button>
+    <button class="mob-nav-btn" data-tab="teams" onclick="navigateTab('teams')">
+      <span class="mob-icon">🏆</span>
+      <span class="mob-lbl">Teams</span>
+    </button>
+    <button class="mob-nav-btn" data-tab="sold" onclick="navigateTab('sold')">
+      <span class="mob-icon">🏷️</span>
+      <span class="mob-lbl">Sold</span>
+    </button>
+    <button class="mob-nav-btn" id="mobMoreBtn" onclick="toggleMobileMoreSheet(true)">
+      <span class="mob-icon">☰</span>
+      <span class="mob-lbl">More</span>
+    </button>
+  </nav>
+
+  <!-- MOBILE "MORE" BOTTOM DRAWER (UPCOMING, UNSOLD, LIVE UPDATES, REPORTS, +ADD) -->
+  <div id="mobileMoreOverlay" class="mobile-sheet-overlay hidden" onclick="toggleMobileMoreSheet(false)">
+    <div class="mobile-bottom-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-drag-handle"></div>
+      <div class="sheet-header">
+        <h4>Tournament Views & Actions</h4>
+        <button class="close-x" onclick="toggleMobileMoreSheet(false)">&times;</button>
+      </div>
+      <div class="sheet-grid">
+        <button class="sheet-tile" onclick="navigateTab('upcoming'); toggleMobileMoreSheet(false);">
+          <span class="s-icon">⏳</span>
+          <span>Upcoming</span>
+        </button>
+        <button class="sheet-tile" onclick="navigateTab('unsold'); toggleMobileMoreSheet(false);">
+          <span class="s-icon">🚫</span>
+          <span>Unsold</span>
+        </button>
+        <button class="sheet-tile" onclick="navigateTab('updates'); toggleMobileMoreSheet(false);">
+          <span class="s-icon">📢</span>
+          <span>Live Updates</span>
+        </button>
+        <button class="sheet-tile" onclick="navigateTab('exports'); toggleMobileMoreSheet(false);">
+          <span class="s-icon">📊</span>
+          <span>Reports / PDF</span>
+        </button>
+        <button class="sheet-tile accent" onclick="toggleMobileMoreSheet(false); openAddPlayerModal();">
+          <span class="s-icon">➕</span>
+          <span>Add Player</span>
+        </button>
+        <button class="sheet-tile accent" onclick="toggleMobileMoreSheet(false); openAddTeamModal();">
+          <span class="s-icon">🏏</span>
+          <span>Add Team</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL: ADD PLAYER (WITH BUCKET DROPDOWN SAVED TO CATEGORY COLUMN) -->
   <div id="modalAddPlayer" class="modal-overlay hidden">

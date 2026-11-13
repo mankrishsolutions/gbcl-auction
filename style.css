@@ -1480,3 +1480,279 @@ body {
   .stats-overview-grid { grid-template-columns: repeat(4, 1fr); }
   .reports-deck { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 }
+
+
+/* ==========================================================
+   DEDICATED MOBILE-ONLY VIEW & BOTTOM APP BAR (< 960px)
+   ========================================================== */
+.mobile-bottom-nav {
+  display: none;
+}
+
+.mobile-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  z-index: 150;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.mobile-bottom-sheet {
+  background: var(--bg-card);
+  border-top: 2px solid var(--accent-blue);
+  border-radius: 22px 22px 0 0;
+  width: 100%;
+  max-width: 540px;
+  padding: 12px 18px 28px 18px;
+  box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.65);
+  animation: slideUpSheet 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.sheet-drag-handle {
+  width: 42px;
+  height: 4px;
+  background: var(--border-color);
+  border-radius: 4px;
+  margin: 0 auto 12px auto;
+}
+
+.sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sheet-header h4 {
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--accent-blue);
+}
+
+.sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.sheet-tile {
+  background: var(--bg-card-sub);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-main);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sheet-tile.accent {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(99, 102, 241, 0.22));
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.sheet-tile .s-icon {
+  font-size: 1.4rem;
+}
+
+@media (max-width: 960px) {
+  body {
+    padding-bottom: 118px !important;
+  }
+
+  /* Clean, compact single-row mobile header that NEVER overflows horizontally */
+  .header-single-row {
+    flex-wrap: nowrap !important;
+    padding: 8px 12px !important;
+    gap: 8px !important;
+  }
+
+  .app-logo {
+    width: 32px;
+    height: 32px;
+    font-size: 1.05rem;
+  }
+
+  .app-title {
+    font-size: 0.9rem;
+  }
+
+  .app-subtitle {
+    font-size: 0.62rem;
+  }
+
+  /* Hide desktop top nav pills & desktop header add buttons on mobile */
+  .top-nav-menu {
+    display: none !important;
+  }
+
+  .btn-header-add {
+    display: none !important;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .sync-status {
+    padding: 5px 8px;
+    font-size: 0.68rem;
+  }
+
+  /* Position Purse Ticker cleanly above the Mobile Bottom Nav Bar */
+  .sticky-footer-bar {
+    bottom: 60px !important;
+    padding: 6px 12px !important;
+    z-index: 45;
+  }
+
+  /* Fixed Mobile Bottom App Navigation Bar */
+  .mobile-bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: var(--bg-header);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border-color);
+    z-index: 60;
+    padding: 4px 2px;
+  }
+
+  .mob-nav-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    font-weight: 800;
+    position: relative;
+  }
+
+  .mob-nav-btn .mob-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+
+  .mob-nav-btn .mob-lbl {
+    font-size: 0.64rem;
+    letter-spacing: 0.2px;
+  }
+
+  .mob-nav-btn.active {
+    color: var(--accent-blue);
+  }
+
+  .mob-nav-btn.active::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: 24px;
+    height: 3px;
+    background: var(--accent-blue);
+    border-radius: 0 0 4px 4px;
+  }
+
+  /* Mobile-friendly Arena & Card refinements */
+  .bucket-control-bar {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .bucket-select-wrap {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 100%;
+    gap: 6px;
+  }
+
+  .bucket-select-wrap select {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .bucket-stats-pills {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .b-pill {
+    flex: 1;
+    text-align: center;
+    padding: 5px 6px;
+    font-size: 0.7rem;
+  }
+
+  .photo-box {
+    width: 170px;
+    height: 195px;
+  }
+
+  .player-headline h2 {
+    font-size: 1.2rem;
+  }
+
+  .accent-price {
+    font-size: 1.2rem;
+  }
+
+  .details-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .list-filter-bar {
+    gap: 8px;
+  }
+
+  .bucket-filter-select {
+    width: 100%;
+  }
+
+  .search-field {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .team-metrics-row {
+    gap: 4px;
+    padding: 8px 4px;
+  }
+
+  .metric-item .val {
+    font-size: 0.72rem;
+  }
+
+  .metric-item .lbl {
+    font-size: 0.54rem;
+  }
+
+  .toast-container {
+    top: 58px;
+    right: 10px;
+    width: calc(100vw - 20px);
+  }
+}
