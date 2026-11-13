@@ -1,5 +1,6 @@
 {
   "name": "Golden Boys Auction Day Manager",
+  "id": "GBAT1",
   "short_name": "Golden Boys Auction",
   "description": "Golden Boys Auction Tournament - Live Auction Manager",
   "start_url": "./index.html",
