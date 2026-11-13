@@ -1053,6 +1053,7 @@ async function submitNewTeam(e) {
 function navigateTab(tabId) {
   document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.top-nav-item').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.mob-nav-btn').forEach(btn => btn.classList.remove('active'));
 
   const activePane = document.getElementById(`tab-${tabId}`);
   if (activePane) activePane.classList.add('active');
@@ -1063,8 +1064,24 @@ function navigateTab(tabId) {
     matchingBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   }
 
+  // Sync mobile bottom nav active indicator
+  const mobBtn = document.querySelector(`.mob-nav-btn[data-tab="${tabId}"]`);
+  if (mobBtn) {
+    mobBtn.classList.add('active');
+  } else {
+    // Highlight "More" tab if viewing Upcoming, Unsold, Updates, or Reports
+    document.getElementById('mobMoreBtn')?.classList.add('active');
+  }
+
   if (tabId === 'exports') renderReportsSummary();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleMobileMoreSheet(open) {
+  const sheet = document.getElementById('mobileMoreOverlay');
+  if (!sheet) return;
+  if (open) sheet.classList.remove('hidden');
+  else sheet.classList.add('hidden');
 }
 
 function toggleTheme() {
