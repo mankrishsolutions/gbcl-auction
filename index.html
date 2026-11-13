@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>GBCL Auction Day Manager</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#070d1f" />
+  <link rel="apple-touch-icon" href="icon-512.png" />
   
   <!-- Custom Crisp Stadium & Single-Row Header Stylesheet -->
   <link rel="stylesheet" href="style.css?v=2" />
@@ -651,5 +654,12 @@
 
   <!-- Main Application Logic Script -->
   <script src="app.js?v=2"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error:', err));
+      });
+    }
+  </script>
 </body>
 </html>
