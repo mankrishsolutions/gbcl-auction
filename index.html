@@ -127,86 +127,116 @@
       </div>
     </section>
 
-    <!-- 2. AUCTION ARENA VIEW -->
+    <!-- 2. AUCTION ARENA VIEW (WITH BUCKET SELECTOR) -->
     <section id="tab-arena" class="tab-pane">
-      <div id="hammerResultBanner" class="hammer-banner hidden"></div>
-
-      <div id="arenaDeckCard" class="arena-deck">
-        <div class="arena-left">
-          <div class="photo-box">
-            <span id="stageBadge" class="card-status-badge">PENDING</span>
-            <img id="stagePhoto" src="https://placehold.co/400x500/0a1128/38bdf8?text=Player+Photo" alt="Player Photo" />
-          </div>
-          <div class="player-meta-row">
-            <p id="stagePlayerID" class="player-id-text">ID: --</p>
-            <span id="stageCategory" class="player-category-text">Category: Regular</span>
-          </div>
+      
+      <!-- BUCKET SELECTION BAR TO RUN AUCTION PROCEEDINGS -->
+      <div class="bucket-control-bar">
+        <div class="bucket-select-wrap">
+          <label for="arenaBucketSelect">🗂️ Active Auction Bucket:</label>
+          <select id="arenaBucketSelect" onchange="onArenaBucketChange()">
+            <option value="">-- Select a Bucket to Start Auction --</option>
+          </select>
         </div>
-
-        <div class="arena-right">
-          <div class="player-headline">
-            <div>
-              <h2 id="stageName">Select a Player to Auction</h2>
-              <span id="stageRoleBadge" class="pill-role">Role</span>
-            </div>
-            <div class="price-stack">
-              <span class="label-muted">Base Price</span>
-              <p id="stageBasePrice" class="accent-price">₹0</p>
-            </div>
-          </div>
-
-          <div class="details-grid">
-            <div class="detail-tile tile-blue">
-              <span class="tile-label">📱 Mobile</span>
-              <span id="stageMobile" class="tile-value">--</span>
-            </div>
-            <div class="detail-tile tile-purple">
-              <span class="tile-label">📍 Area / Locality</span>
-              <span id="stageArea" class="tile-value">--</span>
-            </div>
-            <div class="detail-tile tile-cyan">
-              <span class="tile-label">🏏 Batting Style</span>
-              <span id="stageBatting" class="tile-value">--</span>
-            </div>
-            <div class="detail-tile tile-orange">
-              <span class="tile-label">🎯 Bowling Style</span>
-              <span id="stageBowling" class="tile-value">--</span>
-            </div>
-            <div class="detail-tile tile-pink">
-              <span class="tile-label">🎂 Age</span>
-              <span id="stageAge" class="tile-value">--</span>
-            </div>
-          </div>
-
-          <div class="hammer-box">
-            <div class="hammer-inputs">
-              <div class="input-group">
-                <label>Purchased By Team</label>
-                <select id="stageTeamSelect" onchange="updateSelectedTeamInfo()">
-                  <option value="">-- Choose Purchasing Team --</option>
-                </select>
-                <span id="stageOwnerLabel" class="field-hint">Owner: --</span>
-              </div>
-              <div class="input-group">
-                <label>Final Sold Price (₹)</label>
-                <input type="number" id="stageSoldPrice" placeholder="Hammer amount" />
-              </div>
-            </div>
-
-            <div class="hammer-btns">
-              <button id="btnMarkUnsold" class="btn-unsold" onclick="recordAuction('UNSOLD')">🚫 Mark UNSOLD</button>
-              <button id="btnMarkSold" class="btn-sold" onclick="recordAuction('SOLD')">🔨 SOLD</button>
-            </div>
-          </div>
+        <div class="bucket-stats-pills">
+          <span id="bucketPendingBadge" class="b-pill blue">Pending: 0</span>
+          <span id="bucketSoldBadge" class="b-pill green">Sold: 0</span>
+          <span id="bucketUnsoldBadge" class="b-pill orange">Unsold: 0</span>
         </div>
       </div>
 
-      <div class="queue-section">
-        <div class="queue-header">
-          <h3>Pending Auction Queue</h3>
-          <button class="btn-small-orange" onclick="filterQueue('RE_AUCTION')">🔁 Re-Auction Unsold</button>
+      <div id="hammerResultBanner" class="hammer-banner hidden"></div>
+
+      <!-- PROMPT MESSAGE WHEN NO BUCKET IS SELECTED -->
+      <div id="arenaSelectBucketPrompt" class="empty-bucket-prompt">
+        <div class="prompt-icon">🗂️</div>
+        <h3>Choose a Player Bucket Above to Start Bidding</h3>
+        <p>Select a bucket (e.g. Batsman, Middle Order Batsman, All Rounders, Hard Hitter, Bowlers) to load only players from that category into the auction queue.</p>
+      </div>
+
+      <!-- MAIN STAGE CARD (SHOWN ONCE BUCKET IS SELECTED) -->
+      <div id="arenaStageContainer" class="hidden">
+        <div id="arenaDeckCard" class="arena-deck">
+          <div class="arena-left">
+            <div class="photo-box">
+              <span id="stageBadge" class="card-status-badge">PENDING</span>
+              <img id="stagePhoto" src="https://placehold.co/400x500/0a1128/38bdf8?text=Player+Photo" alt="Player Photo" />
+            </div>
+            <div class="player-meta-row">
+              <p id="stagePlayerID" class="player-id-text">ID: --</p>
+              <span id="stageCategory" class="player-category-text">Bucket: --</span>
+            </div>
+          </div>
+
+          <div class="arena-right">
+            <div class="player-headline">
+              <div>
+                <h2 id="stageName">Select a Player to Auction</h2>
+                <span id="stageRoleBadge" class="pill-role">Bucket</span>
+              </div>
+              <div class="price-stack">
+                <span class="label-muted">Base Price</span>
+                <p id="stageBasePrice" class="accent-price">₹0</p>
+              </div>
+            </div>
+
+            <div class="details-grid">
+              <div class="detail-tile tile-blue">
+                <span class="tile-label">📱 Mobile</span>
+                <span id="stageMobile" class="tile-value">--</span>
+              </div>
+              <div class="detail-tile tile-pink">
+                <span class="tile-label">🎂 Age</span>
+                <span id="stageAge" class="tile-value">--</span>
+              </div>
+              <div class="detail-tile tile-purple">
+                <span class="tile-label">📍 Area / Locality</span>
+                <span id="stageArea" class="tile-value">--</span>
+              </div>
+              <div class="detail-tile tile-cyan">
+                <span class="tile-label">🏏 Batting Style</span>
+                <span id="stageBatting" class="tile-value">--</span>
+              </div>
+              <div class="detail-tile tile-orange">
+                <span class="tile-label">🎯 Bowling Style</span>
+                <span id="stageBowling" class="tile-value">--</span>
+              </div>
+            </div>
+
+            <div class="hammer-box">
+              <div class="hammer-inputs">
+                <div class="input-group">
+                  <label>Purchased By Team</label>
+                  <select id="stageTeamSelect" onchange="updateSelectedTeamInfo()">
+                    <option value="">-- Choose Purchasing Team --</option>
+                  </select>
+                  <span id="stageOwnerLabel" class="field-hint">Owner: --</span>
+                </div>
+                <div class="input-group">
+                  <label>Final Sold Price (₹)</label>
+                  <input type="number" id="stageSoldPrice" placeholder="Hammer amount" />
+                </div>
+              </div>
+
+              <div class="hammer-btns">
+                <button id="btnMarkUnsold" class="btn-unsold" onclick="recordAuction('UNSOLD')">🚫 Mark UNSOLD</button>
+                <button id="btnMarkSold" class="btn-sold" onclick="recordAuction('SOLD')">🔨 SOLD</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div id="arenaQueueList" class="horizontal-scroll-row"></div>
+
+        <!-- BUCKET-SPECIFIC PLAYER QUEUE -->
+        <div class="queue-section">
+          <div class="queue-header">
+            <h3 id="arenaQueueTitle">Players in Selected Bucket</h3>
+            <div class="queue-filter-btns">
+              <button class="btn-small-blue" onclick="setArenaQueueFilter('PENDING')">⏳ Pending</button>
+              <button class="btn-small-orange" onclick="setArenaQueueFilter('UNSOLD')">🔁 Re-Auction Unsold</button>
+            </div>
+          </div>
+          <div id="arenaQueueList" class="horizontal-scroll-row"></div>
+        </div>
       </div>
     </section>
 
@@ -220,9 +250,12 @@
       <div id="teamsCardGrid" class="teams-grid"></div>
     </section>
 
-    <!-- 4. UPCOMING PLAYERS PAGE -->
+    <!-- 4. UPCOMING PLAYERS PAGE (WITH BUCKET FILTER) -->
     <section id="tab-upcoming" class="tab-pane">
       <div class="list-filter-bar">
+        <select id="upcomingBucketFilter" class="bucket-filter-select" onchange="renderPlayerCardsGrid('upcoming')">
+          <option value="ALL">All Buckets</option>
+        </select>
         <input type="text" id="upcomingSearch" class="search-field" placeholder="Search upcoming players..." onkeyup="filterPlayerGrid('upcoming')" />
         <span id="upcomingTotalCount" class="count-badge badge-blue">Total : 0</span>
         <button class="btn-action ml-auto" onclick="openAddPlayerModal()">+ Add Player</button>
@@ -230,18 +263,24 @@
       <div id="upcomingGrid" class="players-cards-grid"></div>
     </section>
 
-    <!-- 5. SOLD PLAYERS PAGE -->
+    <!-- 5. SOLD PLAYERS PAGE (WITH BUCKET FILTER) -->
     <section id="tab-sold" class="tab-pane">
       <div class="list-filter-bar">
+        <select id="soldBucketFilter" class="bucket-filter-select" onchange="renderPlayerCardsGrid('sold')">
+          <option value="ALL">All Buckets</option>
+        </select>
         <input type="text" id="soldSearch" class="search-field" placeholder="Search sold players..." onkeyup="filterPlayerGrid('sold')" />
         <span id="soldTotalCount" class="count-badge badge-green">Total : 0</span>
       </div>
       <div id="soldGrid" class="players-cards-grid"></div>
     </section>
 
-    <!-- 6. UNSOLD PLAYERS PAGE -->
+    <!-- 6. UNSOLD PLAYERS PAGE (WITH BUCKET FILTER) -->
     <section id="tab-unsold" class="tab-pane">
       <div class="list-filter-bar">
+        <select id="unsoldBucketFilter" class="bucket-filter-select" onchange="renderPlayerCardsGrid('unsold')">
+          <option value="ALL">All Buckets</option>
+        </select>
         <input type="text" id="unsoldSearch" class="search-field" placeholder="Search unsold players..." onkeyup="filterPlayerGrid('unsold')" />
         <span id="unsoldTotalCount" class="count-badge badge-orange">Total : 0</span>
       </div>
@@ -262,7 +301,7 @@
       </div>
     </section>
 
-    <!-- 8. EXPORTS & REPORTS PAGE -->
+    <!-- 8. EXPORTS & REPORTS PAGE (WITH BUCKET-WISE PDF CATALOG EXPORT) -->
     <section id="tab-exports" class="tab-pane">
       <div class="stats-overview-grid">
         <div class="stat-box box-blue">
@@ -284,11 +323,17 @@
       </div>
 
       <div class="reports-deck">
+        <!-- BUCKET-SPECIFIC 3-PER-ROW PDF CATALOG -->
         <div class="report-box">
           <div class="report-icon">📇</div>
-          <h4>Pre-Auction Player Catalog PDF (3-Per-Row Cards)</h4>
-          <p>Printable 3-column grid featuring player photos, IDs, roles, and base prices to distribute before bidding starts.</p>
-          <button id="btnExportCatalogPDF" class="btn-export-catalog" onclick="exportPlayerCatalogPDF()">Download 3-Row Player Catalog PDF</button>
+          <h4>Bucket-Wise Player Catalog PDF (3-Per-Row Cards)</h4>
+          <p>Select a specific bucket (or All Buckets) to export a printable 3-per-row photo catalog including Mobile Number & Age.</p>
+          <div class="export-bucket-controls">
+            <select id="exportCatalogBucketSelect" class="bucket-filter-select full-w">
+              <option value="ALL">All Buckets Combined</option>
+            </select>
+            <button id="btnExportCatalogPDF" class="btn-export-catalog" onclick="exportPlayerCatalogPDF()">Download Selected Bucket PDF</button>
+          </div>
         </div>
 
         <div class="report-box">
@@ -301,15 +346,34 @@
         <div class="report-box">
           <div class="report-icon">📗</div>
           <h4>Master Auction Excel (.XLSX)</h4>
-          <p>Complete spreadsheet export with all player details, status, winning teams, and final hammer prices.</p>
+          <p>Complete spreadsheet export with all player details, buckets, status, winning teams, and final hammer prices.</p>
           <button class="btn-export-excel" onclick="exportToExcel()">Download Master Excel</button>
         </div>
 
         <div class="report-box">
           <div class="report-icon">📋</div>
           <h4>Summary Ledger Table PDF</h4>
-          <p>Clean tabular PDF summary of all players and auction results for official record keeping.</p>
+          <p>Clean tabular PDF summary of all players, buckets, and auction results for official record keeping.</p>
           <button class="btn-export-pdf" onclick="exportToPDF()">Download Summary Table PDF</button>
+        </div>
+      </div>
+
+      <!-- Bucket-Wise Player Count Breakdown Table -->
+      <div class="report-table-card" style="margin-bottom: 18px;">
+        <h4>Bucket-Wise Player Summary</h4>
+        <div class="table-responsive">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Bucket / Category Name</th>
+                <th>Total Players</th>
+                <th>Pending</th>
+                <th>Sold</th>
+                <th>Unsold</th>
+              </tr>
+            </thead>
+            <tbody id="reportBucketsTableBody"></tbody>
+          </table>
         </div>
       </div>
 
@@ -341,7 +405,7 @@
     <div id="stickyPurseBar" class="purse-chips-row"></div>
   </aside>
 
-  <!-- MODAL: ADD PLAYER -->
+  <!-- MODAL: ADD PLAYER (WITH BUCKET DROPDOWN SAVED TO CATEGORY COLUMN) -->
   <div id="modalAddPlayer" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
@@ -362,36 +426,43 @@
 
         <div class="form-row">
           <div class="form-col">
-            <label>Mobile Number *</label>
-            <input type="tel" id="newPlayerMobile" required placeholder="10-digit mobile" />
+            <label>Player Bucket (Role Column) *</label>
+            <select id="newPlayerBucket" required>
+              <!-- Populated dynamically from Settings / Default Buckets -->
+            </select>
           </div>
           <div class="form-col">
-            <label>Age</label>
-            <input type="number" id="newPlayerAge" placeholder="e.g. 25" />
+            <label>Player Category *</label>
+            <select id="newPlayerCategory">
+              <option value="Regular">Regular</option>
+              <option value="Reserve Player">Reserve Player</option>
+            </select>
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-col">
-            <label>Area / Locality</label>
-            <input type="text" id="newPlayerArea" placeholder="e.g. Gulmohar Nagar" />
-          </div>
-          <div class="form-col">
             <label>Base Price (₹) *</label>
             <input type="number" id="newPlayerBasePrice" required placeholder="e.g. 2000" />
           </div>
+          <div class="form-col">
+            <label>Area / Locality</label>
+            <input type="text" id="newPlayerArea" placeholder="e.g. Nagpur" />
+          </div>
         </div>
 
-        <div class="form-row-3">
+        <div class="form-row">
           <div class="form-col">
-            <label>Role</label>
-            <select id="newPlayerRole">
-              <option value="Batsman">Batsman</option>
-              <option value="Bowler">Bowler</option>
-              <option value="All-Rounder">All-Rounder</option>
-              <option value="Wicket Keeper">Wicket Keeper</option>
-            </select>
+            <label>Mobile Number *</label>
+            <input type="tel" id="newPlayerMobile" required placeholder="10-digit mobile" />
           </div>
+          <div class="form-col">
+            <label>Age *</label>
+            <input type="number" id="newPlayerAge" required placeholder="e.g. 25" />
+          </div>
+        </div>
+
+        <div class="form-row">
           <div class="form-col">
             <label>Batting Style</label>
             <select id="newPlayerBatting">
@@ -477,12 +548,9 @@
 
             <div class="form-row">
               <div class="form-col">
-                <label>Owner Role</label>
-                <select id="ownerRole">
-                  <option value="All-Rounder">All-Rounder</option>
-                  <option value="Batsman">Batsman</option>
-                  <option value="Bowler">Bowler</option>
-                  <option value="Wicket Keeper">Wicket Keeper</option>
+                <label>Owner Bucket (Role)</label>
+                <select id="ownerBucketSelect">
+                  <!-- Populated dynamically from Buckets -->
                 </select>
               </div>
               <div class="form-col">
