@@ -8,6 +8,11 @@
   "orientation": "portrait",
   "background_color": "#060b19",
   "theme_color": "#070d1f",
+  "short_name": "GBAT",
+    "categories": [
+    "games",
+    "sports"
+  ]
   "icons": [
     {
       "src": "./icon-512.png",
