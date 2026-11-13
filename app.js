@@ -1080,9 +1080,16 @@ function navigateTab(tabId) {
 function toggleMobileMoreSheet(open) {
   const sheet = document.getElementById('mobileMoreOverlay');
   if (!sheet) return;
-  if (open) sheet.classList.remove('hidden');
-  else sheet.classList.add('hidden');
+  const shouldOpen = typeof open === 'boolean' ? open : sheet.classList.contains('hidden');
+  if (shouldOpen) {
+    sheet.classList.remove('hidden');
+    sheet.style.display = 'flex';
+  } else {
+    sheet.classList.add('hidden');
+    sheet.style.display = '';
+  }
 }
+window.toggleMobileMoreSheet = toggleMobileMoreSheet;
 
 function toggleTheme() {
   const html = document.documentElement;

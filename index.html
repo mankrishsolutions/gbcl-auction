@@ -6,7 +6,7 @@
   <title>GBCL Auction Day Manager</title>
   
   <!-- Custom Crisp Stadium & Single-Row Header Stylesheet -->
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
 
   <!-- SheetJS & jsPDF CDN for Exports -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -115,7 +115,6 @@
             src="./Golden_Boys.mp4" 
             controls 
             playsinline 
-			autoplay muted
             preload="metadata">
             Your browser does not support the video tag.
           </video>
@@ -408,23 +407,23 @@
 
   <!-- DEDICATED MOBILE BOTTOM APP NAVIGATION BAR (VISIBLE ON MOBILE < 960px) -->
   <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
-    <button class="mob-nav-btn active" data-tab="intro" onclick="navigateTab('intro')">
+    <button type="button" class="mob-nav-btn active" data-tab="intro" onclick="navigateTab('intro')">
       <span class="mob-icon">🎬</span>
       <span class="mob-lbl">Intro</span>
     </button>
-    <button class="mob-nav-btn" data-tab="arena" onclick="navigateTab('arena')">
+    <button type="button" class="mob-nav-btn" data-tab="arena" onclick="navigateTab('arena')">
       <span class="mob-icon">⚡</span>
       <span class="mob-lbl">Arena</span>
     </button>
-    <button class="mob-nav-btn" data-tab="teams" onclick="navigateTab('teams')">
+    <button type="button" class="mob-nav-btn" data-tab="teams" onclick="navigateTab('teams')">
       <span class="mob-icon">🏆</span>
       <span class="mob-lbl">Teams</span>
     </button>
-    <button class="mob-nav-btn" data-tab="sold" onclick="navigateTab('sold')">
+    <button type="button" class="mob-nav-btn" data-tab="sold" onclick="navigateTab('sold')">
       <span class="mob-icon">🏷️</span>
       <span class="mob-lbl">Sold</span>
     </button>
-    <button class="mob-nav-btn" id="mobMoreBtn" onclick="toggleMobileMoreSheet(true)">
+    <button type="button" class="mob-nav-btn" id="mobMoreBtn" onclick="toggleMobileMoreSheet()">
       <span class="mob-icon">☰</span>
       <span class="mob-lbl">More</span>
     </button>
@@ -651,6 +650,6 @@
   </div>
 
   <!-- Main Application Logic Script -->
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>
